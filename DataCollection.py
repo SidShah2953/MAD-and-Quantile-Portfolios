@@ -5,7 +5,17 @@ import yfinance as yf
 data_folder = 'Data/'
 
 def main():
-    etfs = ['XLY']
+    etfs = [
+        'XLY', # Consumer Discretionary
+	    'XLP', # Consumer Staples
+	    'XLE', # Energy
+	    'XLF', # Financials
+	    'XLV', # Health Care
+	    'XLI', # Industrials
+	    'XLB', # Materials
+	    'XLK', # Technology
+	    'XLU' # Utilities
+    ]
     
     for etf in etfs:
         print(etf)
