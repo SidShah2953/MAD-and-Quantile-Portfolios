@@ -2,7 +2,7 @@ import os
 import pandas as pd
 import yfinance as yf
 
-data_folder = 'Data/'
+data_folder = 'Data/Raw Data/'
 
 def main():
     etfs = [
@@ -20,11 +20,11 @@ def main():
     for etf in etfs:
         print(etf)
         get_stock(etf)
-        get_grouped_returns(etf)
+        # get_grouped_returns(etf)
 
 
 def get_stock(ticker,
-                start_date='2019-01-01',
+                start_date='1999-01-01',
                 end_date = '2024-12-31',
                 s_window=14, 
                 l_window=50,
