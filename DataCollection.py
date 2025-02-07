@@ -1,34 +1,25 @@
 import os
 import pandas as pd
 import yfinance as yf
+from dotenv import load_dotenv
 
-data_folder = 'Data/Raw Data/'
+load_dotenv()
 
 def main():
-    etfs = [
-        'XLY', # Consumer Discretionary
-	    'XLP', # Consumer Staples
-	    'XLE', # Energy
-	    'XLF', # Financials
-	    'XLV', # Health Care
-	    'XLI', # Industrials
-	    'XLB', # Materials
-	    'XLK', # Technology
-	    'XLU' # Utilities
-    ]
+    data_folder = os.getenv('RAW_DATA_DIRECTORY')
+    etfs = os.getenv('ETF_LIST').split(',')
     
     for etf in etfs:
         print(etf)
-        get_stock(etf)
-        # get_grouped_returns(etf)
+        get_stock(etf, output_folder=data_folder)
 
 
 def get_stock(ticker,
-                start_date='1999-01-01',
-                end_date = '2024-12-31',
+                output_folder,
+                start_date=str(os.getenv('START_YEAR')) + '-01-01',
+                end_date=str(os.getenv('END_YEAR')) + '-12-31',
                 s_window=14, 
-                l_window=50,
-                output_folder=data_folder):
+                l_window=50):
     try:
         #yf.pdr_override()  # Uncomment if necessary
         df = yf.download(ticker, start=start_date, end=end_date)
@@ -71,7 +62,7 @@ def get_stock(ticker,
         return None
 
 
-def get_grouped_returns(ticker, folder=data_folder):
+def get_grouped_returns(ticker, folder):
     input_dir = os.path.join(os.getcwd(), f'{folder}')
     df = pd.read_csv(f'{input_dir}/{ticker}.csv')
     df['Date'] = pd.to_datetime(df['Date'])
