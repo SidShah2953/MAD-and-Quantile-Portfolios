@@ -1,6 +1,7 @@
 import numpy as np
 import pandas as pd
 from scipy.optimize import minimize
+import math
 
 
 class MADPortfolioOptimizer:
@@ -14,15 +15,16 @@ class MADPortfolioOptimizer:
         self.etfs = etfs
         self.year = target_year
         self.input_path = input_path
-        self.past_returns = self._load_past_returns()
+        self.past_returns = self._load_returns(past=True)
 
 
-    def _load_past_returns(self):
+    def _load_returns(self, past=False):
         """
         Load ETF returns from CSV files
         :return: DataFrame of ETF returns
         """
-        returns_df = pd.read_csv(f'{self.input_path}/{self.year - 1}.csv')
+        year = self.year - 1 if past else self.year
+        returns_df = pd.read_csv(f'{self.input_path}/{year}.csv')
         
         # Validate ETF presence and convert to returns
         returns_dict = {}
@@ -35,82 +37,57 @@ class MADPortfolioOptimizer:
         return pd.DataFrame(returns_dict)
     
 
-    def _load_returns(self):
-        """
-        Load ETF returns from CSV files
-        :return: DataFrame of ETF returns
-        """
-        returns_df = pd.read_csv(f'{self.input_path}/{self.year}.csv')
-        
-        # Validate ETF presence and convert to returns
-        returns_dict = {}
-        for etf in self.etfs:
-            if etf not in returns_df.columns:
-                raise ValueError(f"ETF {etf} not found in returns data")
-            # Convert price series to returns
-            returns_dict[etf] = returns_df[etf].dropna()
-        
-        return pd.DataFrame(returns_dict)
-    
-
-    def calculate_portfolio(self, max_risk, initial_risk=None):
+    def calculate_portfolio(self, max_risk):
         """
         Optimize portfolio weights with dynamic risk adjustment
         """
+        max_mad_risk = math.sqrt(2 / math.pi) * max_risk
+        n_assets = self.past_returns.shape[1]
         mean_returns = self.past_returns.mean()
-        n_assets = len(mean_returns)
         
+        # Compute MAD risk
+        def mad_risk(weights):
+            portfolio_returns = self.past_returns @ weights
+            return np.mean(np.abs(portfolio_returns - np.mean(portfolio_returns)))
+        
+        # Objective function: maximize return (minimize negative return)
         def objective(weights):
-            portfolio_returns = self.past_returns.dot(weights)
-            portfolio_volatility = portfolio_returns.std() * np.sqrt(252)
-            portfolio_return = np.dot(mean_returns, weights)
-            # Penalize risk above max_risk
-            risk_penalty = max(0, portfolio_volatility - max_risk) * 100
-            return -portfolio_return + risk_penalty
+            return -np.dot(weights, mean_returns)
         
-        constraints = [
-            {'type': 'eq', 'fun': lambda x: np.sum(x) - 1}  # weights sum to 1
-        ]
+        # Constraints
+        constraints = ({
+                            'type': 'eq',
+                            'fun': lambda w: np.sum(w) - 1
+                        },  # Weights sum to 1
+                        {
+                            'type': 'ineq',
+                            'fun': lambda w: max_mad_risk - mad_risk(w)
+                    })  # MAD risk constraint
         
-        bounds = tuple((0, 1) for _ in range(n_assets))
+        # Bounds for weights (each asset must be between 0 and 25%)
+        bounds = [(0, 0.25) for _ in range(n_assets)]
         
-        # Try multiple initial points if first optimization fails
-        initial_points = [
-            np.array([1/n_assets] * n_assets),  # Equal weights
-            np.random.dirichlet(np.ones(n_assets)),  # Random weights
-            np.zeros(n_assets)]
+        # Initial guess (equal allocation within constraints)
+        initial_weights = np.full(n_assets, 1 / n_assets)
         
-        initial_points[-1][0] = 1  # Single asset
+        # Optimization
+        result = minimize(objective,
+                          initial_weights,
+                          method='SLSQP',
+                          bounds=bounds,
+                          constraints=constraints
+                        )
         
-        best_result = None
-        min_objective = float('inf')
-        
-        for initial_weights in initial_points:
-            result = minimize(
-                objective,
-                initial_weights,
-                method='SLSQP',
-                bounds=bounds,
-                constraints=constraints,
-                options={'maxiter': 1000}
-            )
-            
-            if result.fun < min_objective:
-                min_objective = result.fun
-                best_result = result
-        
-        if best_result is None:
-            raise ValueError("Optimization failed with all initial points")
-            
-        weights_df =  pd.DataFrame(
-            best_result.x,
-            index=self.past_returns.columns,
-            columns=['Portfolio Weight']
-        )
-        self.weights = weights_df.to_dict()['Portfolio Weight']
-
-        return weights_df
+        if result.success:
+            self.weights = pd.DataFrame(dict(zip(
+                                self.past_returns.columns, 
+                                list(map(lambda x: [x], result.x))
+                            )))
+            return self.weights  # Optimized portfolio weights
+        else:
+            raise ValueError("Optimization did not converge.")
     
+
     def calculate_returns(self):
         returns = self._load_returns()
         total_return = 0
