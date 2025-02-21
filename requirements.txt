@@ -1,7 +1,6 @@
-# empyrical
+empyrical
 pandas
 yfinance
 numpy
 python-dotenv
 scipy
-# git+https://github.com/scikit-portfolio/scikit-portfolio

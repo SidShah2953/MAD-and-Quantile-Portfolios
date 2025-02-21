@@ -4,7 +4,7 @@ from scipy.optimize import minimize
 import math
 
 
-class MADPortfolioOptimizer:
+class MedAbsDevPortfolio:
     def __init__(self, etfs, target_year, input_path):
         """
         Initialize optimizer with ETF price files
@@ -46,9 +46,9 @@ class MADPortfolioOptimizer:
         mean_returns = self.past_returns.mean()
         
         # Compute MAD risk
-        def mad_risk(weights):
+        def med_ad_risk(weights):
             portfolio_returns = self.past_returns @ weights
-            return np.mean(np.abs(portfolio_returns - np.mean(portfolio_returns)))
+            return np.median(np.abs(portfolio_returns - np.median(portfolio_returns)))
         
         # Objective function: maximize return (minimize negative return)
         def objective(weights):
@@ -61,7 +61,7 @@ class MADPortfolioOptimizer:
                         },  # Weights sum to 1
                         {
                             'type': 'ineq',
-                            'fun': lambda w: max_mad_risk - mad_risk(w)
+                            'fun': lambda w: max_mad_risk - med_ad_risk(w)
                     })  # MAD risk constraint
         
         # Bounds for weights (each asset must be between 0 and 25%)
@@ -95,4 +95,4 @@ class MADPortfolioOptimizer:
             etf_return = np.prod(returns[etf].values + 1)
             total_return += self.weights[etf] * etf_return
         
-        return float(total_return) - 1
+        return total_return[0] - 1
