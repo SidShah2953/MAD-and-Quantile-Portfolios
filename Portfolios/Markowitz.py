@@ -51,9 +51,9 @@ class MarkowitzPortfolioOptimizer:
         
         num_assets = len(self.etfs)
         initial_weights = np.ones(num_assets) / num_assets  # Equal weight start
-        bounds = tuple((0, 1) for _ in range(num_assets))  # No shorting, no leverage
+        bounds = tuple((0, 0.25) for _ in range(num_assets))  # No shorting, no leverage
         constraints = [
-            {'type': 'eq', 'fun': lambda x: np.sum(x) - 1},  # Sum of weights = 1
+            {'type': 'eq', 'fun': lambda x: np.sum(x) - 1},
             {'type': 'ineq', 'fun': lambda x: self.risk_tolerance - portfolio_statistics(x)[1]}
         ]
 
