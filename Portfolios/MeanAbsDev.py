@@ -91,11 +91,25 @@ class MeanAbsDevPortfolio:
             raise ValueError("Optimization did not converge.")
     
 
-    def calculate_returns(self):
-        returns = self._load_returns()
-        total_return = 0
-        for etf in self.etfs:
-            etf_return = np.prod(returns[etf].values + 1) - 1
-            total_return += self.weights[etf] * etf_return
+    def calculate_statistics(self):
+        def max_drawdown(returns):
+            cumulative_returns = (1 + returns).cumprod()
+            running_max = np.maximum.accumulate(cumulative_returns)
+            drawdown = (cumulative_returns - running_max) / running_max
+            return drawdown.min()
         
-        return total_return[0]
+        returns = self._load_returns().to_numpy()
+        portfolio_returns = returns @ self.weights.T
+        annual_stats = {}
+
+        if portfolio_returns.empty:
+            raise ValueError("No returns")
+
+        annual_stats['Annual Return'] = (1 + portfolio_returns).prod() - 1
+        annual_stats['Volatility'] = portfolio_returns.std() * np.sqrt(252)
+        annual_stats['Sharpe Ratio'] = annual_stats['Annual Return'] / annual_stats['Volatility'] \
+                                        if annual_stats['Volatility'].item() > 0 \
+                                        else np.nan
+        annual_stats['Max Drawdown'] = max_drawdown(portfolio_returns)
+
+        return pd.DataFrame(annual_stats)
