@@ -7,7 +7,7 @@ load_dotenv()
 
 def main():
     data_folder = os.getenv('RAW_DATA_DIRECTORY')
-    etfs = os.getenv('ETF_LIST').split(',')
+    etfs = [etf for etf in os.getenv('ETF_LIST').split(',') if etf != 'CSH']
     
     for etf in etfs:
         print(etf)
@@ -72,8 +72,8 @@ def get_grouped_returns(ticker, folder):
         df['Adj Close'] = df['Close']
 
     # Calculate daily returns and handle NaNs
-    df['Return'] = df['Adj Close'].pct_change().fillna(0) * 100
-    df['Return'] = df['Return'].round(3)
+    df['Return'] = df['Adj Close'].pct_change().fillna(0)
+    df['Return'] = df['Return'].round(4)
 
     # Add columns for week number and year
     df['Week_Number'] = df.index.strftime('%U')

@@ -68,7 +68,8 @@ class MedAbsDevPortfolio:
         bounds = [(0, 0.25) for _ in range(n_assets)]
         
         # Initial guess (equal allocation within constraints)
-        initial_weights = np.full(n_assets, 1 / n_assets)
+        initial_weights = np.full(n_assets, 1)
+        initial_weights[-1] = 1
         
         # Optimization
         result = minimize(objective,

@@ -31,9 +31,6 @@ class MarkowitzPortfolioOptimizer:
         return pd.DataFrame(data).dropna()
 
 
-
-
-
     def optimize_portfolio(self):
         def objective_function(self, weights):
             """
