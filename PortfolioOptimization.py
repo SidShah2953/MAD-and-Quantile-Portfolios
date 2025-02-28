@@ -4,7 +4,7 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-def get_yearly_returns(portfolio, max_risk):
+def get_yearly_report(portfolio, max_risk):
     # Load ETFs and input path from environment variables
     etfs = os.getenv('ETF_LIST').split(',')
     input_path = os.getenv('YEARLY_DATA_DIRECTORY')

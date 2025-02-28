@@ -1,69 +1,112 @@
-import pandas as pd
 import numpy as np
+import pandas as pd
 from scipy.optimize import minimize
-# from empyrical import max_drawdown
+import math
 
-class MarkowitzPortfolioOptimizer:
-    def __init__(self, etfs, risk_tolerance, input_path):
+
+class MarkowitzPortfolio:
+    def __init__(self, etfs, target_year, input_path):
         """
-        Initialize optimizer with ETF return files.
+        Initialize optimizer with ETF price files
         :param etfs: List of ETF symbols
-        :param risk_tolerance: Maximum acceptable volatility (e.g., 0.15 for 15%)
-        :param input_path: Path to ETF returns data directory
+        :param target_year: Target year for optimization
+        :param input_path: Path to data directory
         """
         self.etfs = etfs
-        self.risk_tolerance = risk_tolerance
+        self.year = target_year
         self.input_path = input_path
-        self.returns_df = self._load_returns()
-        self.weights = None
+        self.past_returns = self._load_returns(past=True)
 
-    def _load_returns(self):
+
+    def _load_returns(self, past=False):
         """
-        Load ETF return data from CSV files.
+        Load ETF returns from CSV files
         :return: DataFrame of ETF returns
         """
-        data = {}
+        year = self.year - 1 if past else self.year
+        returns_df = pd.read_csv(f'{self.input_path}/{year}.csv')
+        
+        # Validate ETF presence and convert to returns
+        returns_dict = {}
         for etf in self.etfs:
-            df = pd.read_csv(f'{self.input_path}/{etf}_weekly_return_detailed.csv', parse_dates=['Date'])
-            df.set_index('Date', inplace=True)
-            df.rename(columns={'Return': etf}, inplace=True)
-            data[etf] = df[etf] / 100  # Convert percentage returns to decimal
-        return pd.DataFrame(data).dropna()
-
-
-    def optimize_portfolio(self):
-        def objective_function(self, weights):
-            """
-            Objective function for optimization: maximize return with a risk constraint.
-            :param weights: Portfolio weights
-            :return: Negative portfolio return (since we maximize return)
-            """
-            portfolio_return, portfolio_volatility = self._portfolio_statistics(weights)
-            return -portfolio_return  # Negative because we use `minimize()`
+            if etf not in returns_df.columns:
+                raise ValueError(f"ETF {etf} not found in returns data")
+            # Convert price series to returns
+            returns_dict[etf] = returns_df[etf].dropna()
         
-        def portfolio_statistics(self, weights):
-            cov_matrix = self.returns_df.cov()
-            portfolio_volatility = np.sqrt(np.dot(weights.T, np.dot(cov_matrix, weights))) * np.sqrt(252)  # Annualized volatility
-            return portfolio_volatility
+        return pd.DataFrame(returns_dict)
+    
+
+    def calculate_portfolio(self, max_risk):
+        """
+        Optimize portfolio weights with dynamic risk adjustment
+        """
+        R = self.past_returns.to_numpy()
+        mu = np.mean(R, axis=0)
+        cov_matrix = np.cov(R, rowvar=False)
+        n_assets = len(self.etfs)
         
-        num_assets = len(self.etfs)
-        initial_weights = np.ones(num_assets) / num_assets  # Equal weight start
-        bounds = tuple((0, 0.25) for _ in range(num_assets))  # No shorting, no leverage
-        constraints = [
-            {'type': 'eq', 'fun': lambda x: np.sum(x) - 1},
-            {'type': 'ineq', 'fun': lambda x: self.risk_tolerance - portfolio_statistics(x)[1]}
-        ]
+        # Compute portfolio risk
+        def risk(weights):
+            return np.sqrt(weights @ cov_matrix @ weights.T)
+        
+        # Objective function: maximize return (minimize negative return)
+        def objective(weights):
+            return -np.dot(weights, mu)
+        
+        # Constraints
+        constraints = ({
+                            'type': 'eq',
+                            'fun': lambda w: np.sum(w) - 1
+                        },  # Weights sum to 1
+                        {
+                            'type': 'ineq',
+                            'fun': lambda w: max_risk - risk(w)
+                    })  # MAD risk constraint
+        
+        # Bounds for weights (each asset must be between 0 and 25%)
+        bounds = [(0, 0.25) for _ in range(n_assets)]
+        
+        # Initial guess
+        initial_weights = np.ones(n_assets)
+        
+        # Optimization
+        result = minimize(objective,
+                          initial_weights,
+                          method='SLSQP',
+                          bounds=bounds,
+                          constraints=constraints
+                        )
+        
+        if result.success:
+            self.weights = pd.DataFrame(dict(zip(
+                                self.past_returns.columns, 
+                                list(map(lambda x: [x], result.x))
+                            )))
+            return self.weights  # Optimized portfolio weights
+        else:
+            raise ValueError("Optimization did not converge.")
+    
 
-        result = minimize(
-            objective_function,
-            initial_weights,
-            method='SLSQP',
-            bounds=bounds,
-            constraints=constraints
-        )
+    def calculate_statistics(self):
+        def max_drawdown(returns):
+            cumulative_returns = (1 + returns).cumprod()
+            running_max = np.maximum.accumulate(cumulative_returns)
+            drawdown = (cumulative_returns - running_max) / running_max
+            return drawdown.min()
+        
+        returns = self._load_returns().to_numpy()
+        portfolio_returns = returns @ self.weights.T
+        annual_stats = {}
 
-        if not result.success:
-            raise ValueError("Optimization failed!")
+        if portfolio_returns.empty:
+            raise ValueError("No returns")
 
-        self.weights = pd.DataFrame({'ETF': self.etfs, 'Weight': result.x})
-        return self.weights
+        annual_stats['Annual Return'] = (1 + portfolio_returns).prod() - 1
+        annual_stats['Volatility'] = portfolio_returns.std() * np.sqrt(252)
+        annual_stats['Sharpe Ratio'] = annual_stats['Annual Return'] / annual_stats['Volatility'] \
+                                        if annual_stats['Volatility'].item() > 0 \
+                                        else np.nan
+        annual_stats['Max Drawdown'] = max_drawdown(portfolio_returns)
+
+        return pd.DataFrame(annual_stats)

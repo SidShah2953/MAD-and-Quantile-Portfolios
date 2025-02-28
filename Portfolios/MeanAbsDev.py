@@ -41,7 +41,7 @@ class MeanAbsDevPortfolio:
         """
         Optimize portfolio weights with dynamic risk adjustment
         """
-        max_mad_risk = math.sqrt(2 / math.pi) * max_risk
+        max_risk = math.sqrt(2 / math.pi) * max_risk
         _, n_assets = self.past_returns.shape
         R = self.past_returns.to_numpy() 
         mu = np.mean(R, axis=0)
@@ -64,7 +64,7 @@ class MeanAbsDevPortfolio:
                         },  # Weights sum to 1
                         {
                             'type': 'ineq',
-                            'fun': lambda w: max_mad_risk - risk(w)
+                            'fun': lambda w: max_risk - risk(w)
                     })  # MAD risk constraint
         
         # Bounds for weights (each asset must be between 0 and 25%)
