@@ -46,9 +46,9 @@ class MarkowitzPortfolio:
         cov_matrix = np.cov(R, rowvar=False)
         n_assets = len(self.etfs)
         
-        # Compute portfolio risk
+        # Compute Annualised portfolio risk
         def risk(weights):
-            return np.sqrt(weights @ cov_matrix @ weights.T)
+            return weights @ cov_matrix @ weights.T * 250
         
         # Objective function: maximize return (minimize negative return)
         def objective(weights):
@@ -61,14 +61,14 @@ class MarkowitzPortfolio:
                         },  # Weights sum to 1
                         {
                             'type': 'ineq',
-                            'fun': lambda w: max_risk - risk(w)
+                            'fun': lambda w: max_risk ** 2 - risk(w)
                     })  # MAD risk constraint
         
         # Bounds for weights (each asset must be between 0 and 25%)
         bounds = [(0, 0.25) for _ in range(n_assets)]
         
         # Initial guess
-        initial_weights = np.ones(n_assets)
+        initial_weights = np.zeros(n_assets)
         
         # Optimization
         result = minimize(objective,

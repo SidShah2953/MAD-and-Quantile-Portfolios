@@ -6,7 +6,7 @@ def main():
     load_dotenv()
 
     input_folder = os.getenv('RAW_DATA_DIRECTORY')
-    etfs = [etf for etf in os.getenv('ETF_LIST').split(',') if etf != 'CSH']
+    etfs = os.getenv('ETF_LIST').split(',')
 
     files = {}
     for etf in etfs:

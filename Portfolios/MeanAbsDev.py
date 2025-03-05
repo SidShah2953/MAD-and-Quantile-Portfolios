@@ -1,7 +1,6 @@
 import numpy as np
 import pandas as pd
 from scipy.optimize import minimize
-import math
 
 
 class MeanAbsDevPortfolio:
@@ -41,21 +40,20 @@ class MeanAbsDevPortfolio:
         """
         Optimize portfolio weights with dynamic risk adjustment
         """
-        max_risk = math.sqrt(2 / math.pi) * max_risk
+        max_risk = np.sqrt(2 / np.pi) * max_risk
         _, n_assets = self.past_returns.shape
         R = self.past_returns.to_numpy() 
         mu = np.mean(R, axis=0)
         
-        # Compute MAD risk
+        # Compute Annual MAD risk
         def risk(weights):
             risk = np.mean(np.abs(R - mu), axis=0)
             risk = risk @ weights
-            return risk
+            return risk * np.sqrt(250)
         
         # Objective function: maximize return (minimize negative return)
         def objective(weights):
-            pred_return = np.dot(weights, mu)
-            return -pred_return
+            return - mu @ weights
         
         # Constraints
         constraints = ({
@@ -71,7 +69,7 @@ class MeanAbsDevPortfolio:
         bounds = [(0, 0.25) for _ in range(n_assets)]
         
         # Initial guess
-        initial_weights = np.ones(n_assets)
+        initial_weights = np.zeros(n_assets)
         
         # Optimization
         result = minimize(objective,
