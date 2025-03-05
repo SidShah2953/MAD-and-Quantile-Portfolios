@@ -7,7 +7,7 @@ load_dotenv()
 
 def main():
     data_folder = os.getenv('RAW_DATA_DIRECTORY')
-    etfs = [etf for etf in os.getenv('ETF_LIST').split(',') if etf != 'CSH']
+    etfs = os.getenv('ETF_LIST').split(',') + ['^GSPC']
     
     for etf in etfs:
         print(etf)
@@ -22,7 +22,7 @@ def get_stock(ticker,
                 l_window=50):
     try:
         #yf.pdr_override()  # Uncomment if necessary
-        df = yf.download(ticker, start=start_date, end=end_date)
+        df = yf.download(ticker, start=start_date, end=end_date, auto_adjust=False)
         # Add additional columns
         if 'Adj Close' not in df.columns:
             df['Adj Close'] = df['Close']

@@ -7,6 +7,10 @@ load_dotenv()
 def get_yearly_report(portfolio, max_risk):
     # Load ETFs and input path from environment variables
     etfs = os.getenv('ETF_LIST').split(',')
+    use_cash = os.getenv('USE_CASH')
+    if use_cash:
+        etfs += ['CSH']
+    
     input_path = os.getenv('YEARLY_DATA_DIRECTORY')
 
     start_year = int(os.getenv('START_YEAR')) + 1

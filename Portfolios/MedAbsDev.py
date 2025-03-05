@@ -1,10 +1,12 @@
 import numpy as np
 import pandas as pd
 from scipy.optimize import minimize
-import math
 
+import os
+from dotenv import load_dotenv
+load_dotenv()
 
-class MedAbsDevPortfolio:
+class MedianAbsDevPortfolio:
     def __init__(self, etfs, target_year, input_path):
         """
         Initialize optimizer with ETF price files
@@ -41,18 +43,20 @@ class MedAbsDevPortfolio:
         """
         Optimize portfolio weights with dynamic risk adjustment
         """
-        max_mad_risk = math.sqrt(2 / math.pi) * max_risk
-        n_assets = self.past_returns.shape[1]
-        mean_returns = self.past_returns.mean()
+        max_risk = np.sqrt(2 / np.pi) * max_risk
+        _, n_assets = self.past_returns.shape
+        R = self.past_returns.to_numpy() 
+        mu = np.mean(R, axis=0)
         
-        # Compute MAD risk
-        def med_ad_risk(weights):
-            portfolio_returns = self.past_returns @ weights
-            return np.median(np.abs(portfolio_returns - np.median(portfolio_returns)))
+        # Compute Annual MAD risk
+        def risk(weights):
+            risk = np.mean(np.abs(R - mu), axis=0)
+            risk = np.median(risk * weights)
+            return risk * np.sqrt(250)
         
         # Objective function: maximize return (minimize negative return)
         def objective(weights):
-            return -np.dot(weights, mean_returns)
+            return - mu @ weights
         
         # Constraints
         constraints = ({
@@ -61,15 +65,15 @@ class MedAbsDevPortfolio:
                         },  # Weights sum to 1
                         {
                             'type': 'ineq',
-                            'fun': lambda w: max_mad_risk - med_ad_risk(w)
+                            'fun': lambda w: max_risk - risk(w)
                     })  # MAD risk constraint
         
-        # Bounds for weights (each asset must be between 0 and 25%)
-        bounds = [(0, 0.25) for _ in range(n_assets)]
+        # Bounds for weights
+        max_bound = os.getenv('MAX_SHARE')
+        bounds = [(0, max_bound) for _ in range(n_assets)]
         
-        # Initial guess (equal allocation within constraints)
-        initial_weights = np.full(n_assets, 1)
-        initial_weights[-1] = 1
+        # Initial guess
+        initial_weights = np.zeros(n_assets)
         
         # Optimization
         result = minimize(objective,
@@ -89,11 +93,25 @@ class MedAbsDevPortfolio:
             raise ValueError("Optimization did not converge.")
     
 
-    def calculate_returns(self):
-        returns = self._load_returns()
-        total_return = 0
-        for etf in self.etfs:
-            etf_return = np.prod(returns[etf].values + 1)
-            total_return += self.weights[etf] * etf_return
+    def calculate_statistics(self):
+        def max_drawdown(returns):
+            cumulative_returns = (1 + returns).cumprod()
+            running_max = np.maximum.accumulate(cumulative_returns)
+            drawdown = (cumulative_returns - running_max) / running_max
+            return drawdown.min()
         
-        return total_return[0] - 1
+        returns = self._load_returns().to_numpy()
+        portfolio_returns = returns @ self.weights.T
+        annual_stats = {}
+
+        if portfolio_returns.empty:
+            raise ValueError("No returns")
+
+        annual_stats['Annual Return'] = (1 + portfolio_returns).prod() - 1
+        annual_stats['Volatility'] = portfolio_returns.std() * np.sqrt(252)
+        annual_stats['Sharpe Ratio'] = annual_stats['Annual Return'] / annual_stats['Volatility'] \
+                                        if annual_stats['Volatility'].item() > 0 \
+                                        else np.nan
+        annual_stats['Max Drawdown'] = max_drawdown(portfolio_returns)
+
+        return pd.DataFrame(annual_stats)

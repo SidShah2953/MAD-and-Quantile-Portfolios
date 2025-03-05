@@ -6,7 +6,7 @@ def main():
     load_dotenv()
 
     input_folder = os.getenv('RAW_DATA_DIRECTORY')
-    etfs = os.getenv('ETF_LIST').split(',')
+    etfs = os.getenv('ETF_LIST').split(',') + ['^GSPC']
 
     files = {}
     for etf in etfs:
@@ -28,7 +28,7 @@ def main():
                 yearly_data = etf_yearly
             else:
                 yearly_data = pd.merge(yearly_data, etf_yearly)
-        # yearly_data['CSH'] = 0
+        yearly_data['CSH'] = 0.00
         yearly_data.to_csv(f'{output_folder}{year}.csv', index=False)
 
 main()

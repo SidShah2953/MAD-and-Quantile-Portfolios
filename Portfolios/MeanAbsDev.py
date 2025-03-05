@@ -2,6 +2,9 @@ import numpy as np
 import pandas as pd
 from scipy.optimize import minimize
 
+import os
+from dotenv import load_dotenv
+load_dotenv()
 
 class MeanAbsDevPortfolio:
     def __init__(self, etfs, target_year, input_path):
@@ -65,8 +68,9 @@ class MeanAbsDevPortfolio:
                             'fun': lambda w: max_risk - risk(w)
                     })  # MAD risk constraint
         
-        # Bounds for weights (each asset must be between 0 and 25%)
-        bounds = [(0, 0.25) for _ in range(n_assets)]
+        # Bounds for weights
+        max_bound = os.getenv('MAX_SHARE')
+        bounds = [(0, max_bound) for _ in range(n_assets)]
         
         # Initial guess
         initial_weights = np.zeros(n_assets)

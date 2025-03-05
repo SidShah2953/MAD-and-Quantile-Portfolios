@@ -1,8 +1,9 @@
 import numpy as np
 import pandas as pd
-from scipy.optimize import minimize
-import math
 
+import os
+from dotenv import load_dotenv
+load_dotenv()
 
 class EqWeightPortfolio:
     def __init__(self, etfs, target_year, input_path):
@@ -38,9 +39,16 @@ class EqWeightPortfolio:
     
 
     def calculate_portfolio(self, max_risk):
+        if os.getenv('USE_CASH'):
+            invest_in = len(self.etfs) - 1
+            weights = [[1 / invest_in]] * invest_in + [[0]]
+        else:
+            invest_in = len(self.etfs) 
+            weights = [[1 / invest_in]] * invest_in
+            
         self.weights = pd.DataFrame(dict(zip(
                             self.past_returns.columns, 
-                            [[1 / len(self.etfs)]] * len(self.etfs))
+                            weights)
                         ))
         return self.weights  # Optimized portfolio weights
     

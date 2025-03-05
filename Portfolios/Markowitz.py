@@ -1,7 +1,10 @@
 import numpy as np
 import pandas as pd
 from scipy.optimize import minimize
-import math
+
+import os
+from dotenv import load_dotenv
+load_dotenv()
 
 
 class MarkowitzPortfolio:
@@ -64,8 +67,9 @@ class MarkowitzPortfolio:
                             'fun': lambda w: max_risk ** 2 - risk(w)
                     })  # MAD risk constraint
         
-        # Bounds for weights (each asset must be between 0 and 25%)
-        bounds = [(0, 0.25) for _ in range(n_assets)]
+        # Bounds for weights
+        max_bound = os.getenv('MAX_SHARE')
+        bounds = [(0, max_bound) for _ in range(n_assets)]
         
         # Initial guess
         initial_weights = np.zeros(n_assets)
