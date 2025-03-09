@@ -1,10 +1,11 @@
 import os
 import pandas as pd
+import numpy as np
 from dotenv import load_dotenv
 
 load_dotenv()
 
-def get_yearly_report(portfolio, max_risk):
+def get_yearly_report(portfolio, max_risk, max_alloc=None):
     # Load ETFs and input path from environment variables
     etfs = os.getenv('ETF_LIST').split(',')
     use_cash = os.getenv('USE_CASH')
@@ -19,7 +20,7 @@ def get_yearly_report(portfolio, max_risk):
     weights_collector = []
     stats_collector = []
     for year in range(start_year, end_year + 1):
-        po = portfolio(etfs, target_year=year, input_path=input_path)
+        po = portfolio(etfs, target_year=year, input_path=input_path, max_alloc=max_alloc)
         weights = po.calculate_portfolio(max_risk)
         weights_df = weights.copy()
         weights_df['Year'] = [year]
@@ -35,16 +36,20 @@ def get_yearly_report(portfolio, max_risk):
     for col in weights_df.columns:
         if col == 'Year':
             continue
-        weights_df[col] = (weights_df[col] * 100).round(2)
+        else:
+            weights_df[col] = (weights_df[col] * 100).round(2)
     weights_df = weights_df.reset_index().drop('index', axis=1)
 
     stats_df = pd.concat(stats_collector)
     stats_df = stats_df[['Year'] + list(stats_df.columns)[:-1]]
+    stats_df['Portfolio Value'] = np.cumprod(stats_df['Annual Return'] + 1) * 100
     for col in stats_df.columns:
         if col == 'Year':
             continue
         elif col == 'Sharpe Ratio':
             stats_df[col] = stats_df[col].round(4)
+        elif col == 'Portfolio Value':
+            stats_df[col] = stats_df[col].round(2)
         else:
             stats_df[col] = (stats_df[col] * 100).round(2)
     stats_df = stats_df.reset_index().drop('index', axis=1)

@@ -6,7 +6,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 class BuyAndHold:
-    def __init__(self, etfs, target_year, input_path):
+    def __init__(self, etfs, target_year, input_path, max_alloc=None):
         """
         Initialize optimizer with ETF price files
         :param etfs: List of ETF symbols

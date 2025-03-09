@@ -8,7 +8,7 @@ load_dotenv()
 
 
 class MarkowitzPortfolio:
-    def __init__(self, etfs, target_year, input_path):
+    def __init__(self, etfs, target_year, input_path, max_alloc=None):
         """
         Initialize optimizer with ETF price files
         :param etfs: List of ETF symbols
@@ -19,6 +19,7 @@ class MarkowitzPortfolio:
         self.year = target_year
         self.input_path = input_path
         self.past_returns = self._load_returns(past=True)
+        self.max_alloc = os.getenv('MAX_ALLOC') if max_alloc is None else max_alloc
 
 
     def _load_returns(self, past=False):
@@ -68,8 +69,10 @@ class MarkowitzPortfolio:
                     })  # MAD risk constraint
         
         # Bounds for weights
-        max_bound = os.getenv('MAX_SHARE')
-        bounds = [(0, max_bound) for _ in range(n_assets)]
+        if 'CSH' in self.etfs:
+            bounds = [(0, self.max_alloc)] * (n_assets - 1) + [(0, 1)]
+        else: 
+            bounds = [(0, self.max_alloc)] * (n_assets)
         
         # Initial guess
         initial_weights = np.zeros(n_assets)

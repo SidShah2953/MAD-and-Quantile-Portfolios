@@ -6,7 +6,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 class EqWeightPortfolio:
-    def __init__(self, etfs, target_year, input_path):
+    def __init__(self, etfs, target_year, input_path, max_alloc=None):
         """
         Initialize optimizer with ETF price files
         :param etfs: List of ETF symbols
@@ -39,7 +39,7 @@ class EqWeightPortfolio:
     
 
     def calculate_portfolio(self, max_risk):
-        if os.getenv('USE_CASH'):
+        if 'CSH' in self.etfs:
             invest_in = len(self.etfs) - 1
             weights = [[1 / invest_in]] * invest_in + [[0]]
         else:
