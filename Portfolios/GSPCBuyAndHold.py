@@ -83,6 +83,7 @@ class BuyAndHold:
             # Calculate weights based on previous period's data
             weights = self._calculate_weights(based_on=previous_period, max_risk=max_risk) \
                             .values[0]
+            self.weights.loc[current_period, :] = weights
             current_returns = self._load_returns(current_period).values
             portfolio_return = current_returns @ weights
 
