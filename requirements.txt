@@ -1,6 +1,5 @@
-empyrical
 pandas
-yfinance
 numpy
 python-dotenv
 scipy
+yfinance
