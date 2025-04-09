@@ -1,9 +1,6 @@
-from operator import index
-
 import pandas as pd
 import numpy as np
 
-import os
 from dotenv import load_dotenv
 load_dotenv()
 
@@ -78,7 +75,7 @@ def add_period_column(df, date_col='Date', freq='1d'):
         raise ValueError(f"Frequency '{freq}' not supported. Use '1d', '1wk', '1mo', '3mo', '6mo', or '1y'.")
 
     # Find the last date in each group
-    group_last_dates = result_df.groupby('temp_group')['date_obj'].max()
+    group_last_dates = result_df.groupby('temp_group')['date_obj'].min()
 
     # Map the last dates back to the original DataFrame
     result_df['period'] = result_df['temp_group'].map(group_last_dates)

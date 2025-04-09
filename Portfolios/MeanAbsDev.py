@@ -25,10 +25,8 @@ class MeanAbsDevPortfolio:
         self.data = pd.read_csv(os.getenv('COMBINED_DATA_FILE'))
         self.data = add_period_column(self.data, freq=freq)
         self.data = self.data[['period'] + self.etfs]
-        self.grouped_data = self.data.groupby('period').apply(lambda period_data:
-                    (period_data.iloc[:, 1:] + 1).prod() - 1
-                )
         self.data = self.data.set_index('period')
+        
         self.weights = pd.DataFrame(index=self.data.columns)
         self.periods = list(sorted(self.data.index.unique()))
         self.period_length = get_trading_days(freq)
