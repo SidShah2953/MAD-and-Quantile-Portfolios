@@ -5,7 +5,7 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-def main():
+def collect_data():
     data_folder = os.getenv('RAW_DATA_DIRECTORY')
     etfs = os.getenv('ETF_LIST').split(',') + ['^GSPC']
     
@@ -60,6 +60,3 @@ def get_stock(ticker,
         print(error)
         print('\t- Failed to get Yahoo stock data for ticker:', ticker)
         return None
-
-
-main()

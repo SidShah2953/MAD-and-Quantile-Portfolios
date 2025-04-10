@@ -1,27 +1,34 @@
+import os
 import pandas as pd
-import numpy as np
-
 from dotenv import load_dotenv
-load_dotenv()
 
 
-def get_trading_days(frequency):
-    """
-    Returns the number of trading days for different frequency periods
+def process_data():
+    load_dotenv()
 
-    :param frequency: Period frequency
-    :return: Number of trading days in the period
-    """
-    trading_days_map = {
-        '1d': 1,      # Daily
-        '1wk': 5,     # Weekly (assuming 5 trading days per week)
-        '1mo': 21,    # Monthly (assuming 21 trading days per month)
-        '3mo': 63,    # Quarterly (21 * 3)
-        '6mo': 125,   # Semi-annually (21 * 6)
-        '1y': 250     # Yearly (assuming 250 trading days per year)
-    }
+    input_folder = os.getenv('RAW_DATA_DIRECTORY')
+    etfs = os.getenv('ETF_LIST').split(',') + [os.getenv('INDEX_ETF')]
 
-    return trading_days_map.get(frequency, 0)
+    files = {}
+    for etf in etfs:
+        file = pd.read_csv(f'{input_folder}{etf}.csv')
+        files[etf] = file.dropna()
+
+    output_file = os.getenv('COMBINED_DATA_FILE')
+
+    combined = None
+    for etf in etfs:
+        etf_data = files[etf]
+        etf_data = etf_data[['Date', 'Return']]
+        etf_data.columns = ['Date', etf]
+
+        if combined is None:
+            combined = etf_data
+        else:
+            combined = pd.merge(combined, etf_data)
+    combined['CSH'] = 0.00
+    combined.sort_values('Date') \
+        .to_csv(f'{output_file}', index=False)
 
 
 def add_period_column(df, date_col='Date', freq='1d'):
@@ -87,16 +94,3 @@ def add_period_column(df, date_col='Date', freq='1d'):
     result_df = result_df.drop(['date_obj', 'temp_group', date_col], axis=1)
 
     return result_df
-
-
-def calculate_portfolio_value(returns, initial=100):
-    returns['PV'] = (np.cumprod(returns['returns'] + 1) - 1) * initial
-
-    return returns
-
-
-def max_drawdown(returns):
-    cumulative_returns = (1 + returns).cumprod()
-    running_max = np.maximum.accumulate(cumulative_returns)
-    drawdown = (cumulative_returns - running_max) / running_max
-    return drawdown.min()
