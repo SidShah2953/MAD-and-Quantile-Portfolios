@@ -2,6 +2,7 @@ import numpy as np
 import pandas as pd
 
 from scripts.finance.BasePortfolio import BasePortfolio
+from scripts.finance.helpers import get_trading_days
 
 
 class BuyAndHold(BasePortfolio):
@@ -49,7 +50,7 @@ class MarkowitzPortfolio(BasePortfolio):
         """
         Calculate Markowitz portfolio weights using mean-variance optimization
         """
-        max_risk = max_risk * np.sqrt(1 / 250)
+        max_risk = max_risk * np.sqrt(1 / get_trading_days('1y'))
         R = self._load_returns(based_on).to_numpy()
         cov_matrix = np.cov(R, rowvar=False)
         
@@ -68,13 +69,13 @@ class MeanAbsDevPortfolio(BasePortfolio):
         """
         Calculate Mean Absolute Deviation portfolio weights
         """
-        max_risk = np.sqrt(2 / np.pi) * max_risk * np.sqrt(1 / 250)
+        max_risk = np.sqrt(2 / np.pi) * max_risk * np.sqrt(1 / get_trading_days('1y'))
         R = self._load_returns(based_on).to_numpy()
-        mu = np.mean(R, axis=0)
         
         def risk(weights):
-            risk = np.mean(np.abs(R - mu), axis=0)
-            risk = risk @ weights
+            R_weighted = R @ weights
+            mu = np.mean(R_weighted)
+            risk = np.mean(np.abs(R_weighted - mu))
             return risk
             
         return self._optimize_weights(based_on, max_risk, risk)

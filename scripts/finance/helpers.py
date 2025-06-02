@@ -18,8 +18,8 @@ def get_trading_days(frequency):
         '1wk': 5,     # Weekly (assuming 5 trading days per week)
         '1mo': 21,    # Monthly (assuming 21 trading days per month)
         '3mo': 63,    # Quarterly (21 * 3)
-        '6mo': 125,   # Semi-annually (21 * 6)
-        '1y': 250     # Yearly (assuming 250 trading days per year)
+        '6mo': 126,   # Semi-annually (21 * 6)
+        '1y': 252     # Yearly (assuming 250 trading days per year)
     }
 
     return trading_days_map.get(frequency, 0)
