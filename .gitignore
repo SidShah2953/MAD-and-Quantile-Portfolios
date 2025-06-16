@@ -1,3 +1,13 @@
 Related Papers/
 *__pycache__
 Output/
+
+*.DS_Store
+# Ignore Python bytecode files
+*.pyc
+# Ignore Jupyter Notebook checkpoints
+.ipynb_checkpoints
+# Ignore virtual environment directories
+venv/
+# Ignore log files
+*.log
