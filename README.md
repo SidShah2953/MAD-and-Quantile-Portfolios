@@ -10,7 +10,7 @@ The project implements several portfolio optimization strategies:
 - **Markowitz Portfolio**: Traditional mean-variance optimization
 - **MAD Portfolio**: Mean Absolute Deviation optimization
 
-The code allows for backtesting these strategies over different time periods with various rebalancing frequencies and risk constraints.
+The code allows for back-testing these strategies over different time periods with various rebalancing frequencies and risk constraints.
 
 ## Prerequisites
 
@@ -87,7 +87,7 @@ jupyter notebook "Change in Max Risk.ipynb"
 This notebook:
 1. Defines the maximum risk constraint
 2. Sets up the portfolio optimization parameters
-3. Runs backtests for different portfolio strategies
+3. Runs back-tests for different portfolio strategies
 4. Generates performance metrics and visualizations
 5. Saves results to the Output directory
 
@@ -105,12 +105,12 @@ To create a custom portfolio optimization:
 
 1. Import the necessary portfolio classes:
 ```python
-from scripts.finance.Portfolios import MarkowitzPortfolio, MeanAbsDevPortfolio
+from scripts.finance.Portfolios import StdDevPortfolio, MADPortfolio
 ```
 
 2. Initialize the portfolio with a rebalancing frequency:
 ```python
-portfolio = MeanAbsDevPortfolio(freq='6mo')  # '1d', '1wk', '1mo', '3mo', '6mo', '1y'
+portfolio = MADPortfolio(freq='6mo')  # '1d', '1wk', '1mo', '3mo', '6mo', '1y'
 ```
 
 3. Calculate performance with a risk constraint:
