@@ -3,6 +3,7 @@ import pandas as pd
 
 from scripts.finance.BasePortfolio import BasePortfolio
 from scripts.finance.helpers import get_trading_days
+from scipy.stats import norm
 
 
 class BuyAndHold(BasePortfolio):
@@ -78,12 +79,13 @@ class MADPortfolio(BasePortfolio):
 
 
 class IQRPortfolio(BasePortfolio):
-    def __init__(self, freq, max_alloc=None):
+    def __init__(self, freq, max_alloc=None, trim=0.5):
         super().__init__(
             freq=freq, 
             max_alloc=max_alloc,
             use_index_etf=False
             )
+        self.trim = trim
 
 
     def _calculate_weights(self, based_on, max_risk):
@@ -92,11 +94,15 @@ class IQRPortfolio(BasePortfolio):
         """
         max_risk = max_risk * np.sqrt(1 / get_trading_days('1y'))
         R = self._load_returns(based_on).to_numpy()
-        
+
+        lower = self.trim / 2
+        upper = 1 - self.trim / 2
+
         def risk(weights):
             R_weighted = R @ weights
-            q75, q25 = np.percentile(R_weighted, [75, 25])
-            iqr = q75 - q25
-            return iqr / 2
+            q_upper, q_lower = np.percentile(R_weighted, [upper * 100, lower * 100])
+            range = q_upper - q_lower
+            denom = 1 / (self.trim / 2)
+            return range / denom
             
         return self._optimize_weights(based_on, max_risk, risk)

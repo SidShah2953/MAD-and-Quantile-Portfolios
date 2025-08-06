@@ -3,9 +3,9 @@ from dotenv import load_dotenv
 load_dotenv()
 
 
-def get_report(portfolio, freq, max_risk, max_alloc=None):
-    po = portfolio(freq=freq, max_alloc=max_alloc)
-    stats_df = po.calculate_performance(max_risk)
+def get_report(portfolio, parameters):
+    po = portfolio(freq=parameters['freq'], max_alloc=parameters['max_alloc'])
+    stats_df = po.calculate_performance(parameters['max_risk'])
 
     for col in stats_df.columns:
         if col == 'Sharpe':
