@@ -20,10 +20,8 @@ output_dir = f'{output_dir}/{max_risk:.2%}'
 os.makedirs(output_dir, exist_ok=True)
 
 freqs = [
-    # '1d',
-    # '1wk',
-    # '1mo',
-    # '3mo',
+    '1mo',
+    '3mo',
     '6mo',
     '1y'
 ]

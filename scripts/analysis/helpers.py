@@ -17,7 +17,7 @@ def get_report(portfolio, parameters):
 
     weights_df = po.weights
     for col in weights_df.columns:
-        weights_df[col] = (weights_df[col] * 100).round(2)
+        weights_df[col] = weights_df[col] * 100
     weights_df.loc[f"{os.getenv('START_YEAR')}-01-01"] = len(weights_df.columns) * [0]
     weights_df.loc[f"{int(os.getenv('END_YEAR')) + 1}-01-01"] = len(weights_df.columns) * [0]
     weights_df = weights_df.sort_index()
