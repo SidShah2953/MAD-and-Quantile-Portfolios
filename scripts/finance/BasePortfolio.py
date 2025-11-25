@@ -39,7 +39,11 @@ class BasePortfolio(ABC):
         self.performance = {
             'Return': {},
             'Volatility': {},
+            'MAD': {},
+            'IQR': {},
             'Sharpe': {},
+            'Sharpe_MAD': {},
+            'Sharpe_IQR': {},
             'MDD': {},
         }
 
@@ -116,7 +120,11 @@ class BasePortfolio(ABC):
         """
         self.performance['Return'][self.periods[0]] = 0
         self.performance['Volatility'][self.periods[0]] = 0
+        self.performance['MAD'][self.periods[0]] = 0
+        self.performance['IQR'][self.periods[0]] = 0
         self.performance['Sharpe'][self.periods[0]] = np.nan
+        self.performance['Sharpe_MAD'][self.periods[0]] = np.nan
+        self.performance['Sharpe_IQR'][self.periods[0]] = np.nan
         self.performance['MDD'][self.periods[0]] = np.nan
 
         for i in range(1, len(self.periods)):
@@ -128,9 +136,32 @@ class BasePortfolio(ABC):
             current_returns = self._load_returns(current_period).values
             portfolio_return = current_returns @ weights
 
+            # Calculate period return
             self.performance['Return'][current_period] = np.prod(portfolio_return + 1) - 1
-            self.performance['Volatility'][current_period] = np.std(portfolio_return) * np.sqrt(self.period_length)
-            self.performance['Sharpe'][current_period] = self.performance['Return'][current_period] / self.performance['Volatility'][current_period]
+            
+            # Calculate annualized volatility from daily returns in the period
+            self.performance['Volatility'][current_period] = np.std(portfolio_return) * np.sqrt(get_trading_days('1y'))
+            
+            # Calculate annualized MAD
+            mu = np.mean(portfolio_return)
+            self.performance['MAD'][current_period] = np.mean(np.abs(portfolio_return - mu)) * np.sqrt(get_trading_days('1y'))
+            
+            # Calculate annualized IQR
+            q75, q25 = np.percentile(portfolio_return, [75, 25])
+            self.performance['IQR'][current_period] = (q75 - q25) * np.sqrt(get_trading_days('1y'))
+            
+            # Calculate annualized return for Sharpe ratios
+            annualized_return = (1 + self.performance['Return'][current_period]) ** (get_trading_days('1y') / self.period_length) - 1
+            
+            # Calculate Sharpe ratio with volatility
+            self.performance['Sharpe'][current_period] = annualized_return / self.performance['Volatility'][current_period] if self.performance['Volatility'][current_period] != 0 else np.nan
+            
+            # Calculate Sharpe ratio with MAD
+            self.performance['Sharpe_MAD'][current_period] = annualized_return / self.performance['MAD'][current_period] if self.performance['MAD'][current_period] != 0 else np.nan
+            
+            # Calculate Sharpe ratio with IQR
+            self.performance['Sharpe_IQR'][current_period] = annualized_return / self.performance['IQR'][current_period] if self.performance['IQR'][current_period] != 0 else np.nan
+            
             self.performance['MDD'][current_period] = max_drawdown(portfolio_return)
 
         temp = []

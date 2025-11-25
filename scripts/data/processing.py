@@ -81,11 +81,11 @@ def add_period_column(df, date_col='Date', freq='1d'):
     else:
         raise ValueError(f"Frequency '{freq}' not supported. Use '1d', '1wk', '1mo', '3mo', '6mo', or '1y'.")
 
-    # Find the last date in each group
-    group_last_dates = result_df.groupby('temp_group')['date_obj'].min()
+    # Find the first date in each group (rebalancing happens at period start)
+    group_first_dates = result_df.groupby('temp_group')['date_obj'].min()
 
-    # Map the last dates back to the original DataFrame
-    result_df['period'] = result_df['temp_group'].map(group_last_dates)
+    # Map the first dates back to the original DataFrame
+    result_df['period'] = result_df['temp_group'].map(group_first_dates)
 
     # Convert period back to string format
     result_df['period'] = result_df['period'].dt.strftime('%Y-%m-%d')

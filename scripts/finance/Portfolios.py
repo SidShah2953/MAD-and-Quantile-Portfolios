@@ -41,12 +41,14 @@ class StdDevPortfolio(BasePortfolio):
         """
         Calculate Markowitz portfolio weights using mean-variance optimization
         """
-        max_risk = max_risk * np.sqrt(1 / get_trading_days('1y'))
+        # Convert annual risk to period risk
+        max_risk = max_risk * np.sqrt(self.period_length / get_trading_days('1y'))
         R = self._load_returns(based_on).to_numpy()
         cov_matrix = np.cov(R, rowvar=False)
         
 
         def risk(weights):
+            # Return daily standard deviation of portfolio
             return np.sqrt(weights @ cov_matrix @ weights.T)
             
 
@@ -66,14 +68,15 @@ class MADPortfolio(BasePortfolio):
         """
         Calculate Mean Absolute Deviation portfolio weights
         """
-        max_risk = max_risk * np.sqrt(1 / get_trading_days('1y'))
+        # Convert annual risk to period risk (MAD scales with sqrt of time like volatility)
+        max_risk = max_risk * np.sqrt(self.period_length / get_trading_days('1y'))
         R = self._load_returns(based_on).to_numpy()
         
         def risk(weights):
             R_weighted = R @ weights
             mu = np.mean(R_weighted)
-            risk = np.mean(np.abs(R_weighted - mu))
-            return risk
+            mad = np.mean(np.abs(R_weighted - mu))
+            return mad
             
         return self._optimize_weights(based_on, max_risk, risk)
 
@@ -92,7 +95,8 @@ class IQRPortfolio(BasePortfolio):
         """
         Calculate Interquartile Range portfolio weights
         """
-        max_risk = max_risk * np.sqrt(1 / get_trading_days('1y'))
+        # Convert annual risk to period risk (IQR scales with sqrt of time)
+        max_risk = max_risk * np.sqrt(self.period_length / get_trading_days('1y'))
         R = self._load_returns(based_on).to_numpy()
 
         lower = self.trim / 2
@@ -101,8 +105,7 @@ class IQRPortfolio(BasePortfolio):
         def risk(weights):
             R_weighted = R @ weights
             q_upper, q_lower = np.percentile(R_weighted, [upper * 100, lower * 100])
-            range = q_upper - q_lower
-            denom = 1 / (self.trim / 2)
-            return range / denom
+            iqr = q_upper - q_lower
+            return iqr
             
         return self._optimize_weights(based_on, max_risk, risk)

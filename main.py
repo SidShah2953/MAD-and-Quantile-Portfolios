@@ -70,41 +70,66 @@ if __name__ == '__main__':
                 bar()
 
             # Collect all metrics & Plot them
+            metric_labels = {
+                'Return': 'Return (%)',
+                'Volatility': 'Volatility (%)',
+                'MAD': 'Mean Absolute Deviation (%)',
+                'IQR': 'Interquartile Range (%)',
+                'Sharpe': 'Sharpe Ratio (Vol)',
+                'Sharpe_MAD': 'Sharpe Ratio (MAD)',
+                'Sharpe_IQR': 'Sharpe Ratio (IQR)',
+                'MDD': 'Maximum Drawdown (%)',
+                'PV': 'Portfolio Value ($)'
+            }
+            
             for stat in stats_used:
                 stat_graph_df = pd.concat([
                                     all_stats[name][[stat]].rename(columns={stat: name})
                                     for name in portfolios.keys()
                                 ], axis=1)
                 stat_graph_df.to_excel(f'{output_dir}/{freq}/Metrics/{stat}.xlsx', index=True)
+                
+                ylabel = metric_labels.get(stat, stat)
+                
                 if stat == 'PV':
                     stat_graph_df.plot(kind='line', figsize=(18, 8))
+                    plt.ylabel(ylabel)
+                    plt.xlabel('Period')
                 else:
                     stat_graph_df.plot(kind='bar', figsize=(18, 8))
-                plt.xticks(rotation=90)
-                plt.title(f"{stat} Comparison for all Portfolios (Rebalanced {freq})")
-                plt.savefig(f'{output_dir}/{freq}/Metrics/{stat}.png', bbox_inches='tight')
+                    plt.ylabel(ylabel)
+                    plt.xlabel('Period')
+                plt.xticks(rotation=45, ha='right')
+                plt.title(f"{metric_labels.get(stat, stat)} Comparison (Rebalanced {freq})")
+                plt.legend(loc='best')
+                plt.grid(True, alpha=0.3)
+                plt.savefig(f'{output_dir}/{freq}/Metrics/{stat}.png', bbox_inches='tight', dpi=150)
                 plt.close()
 
-            # Analysis on yearly change of weights
+            # Analysis on period change of weights
             weight_comp = {
                 'period': all_weights[list(all_weights.keys())[0]].index[1:]
             }
             for name in all_weights.keys():
                 weights = list(all_weights[name].values / 100)        
-                yearly_var = []
+                period_var = []
                 for i in range(1, len(weights)):
-                    if name == 'S&P BnH' or name == 'Equal':
-                        yearly_var.append(np.mean(np.abs(weights[i] - weights[i - 1])))
-                    else:
-                        yearly_var.append(np.mean(np.abs(weights[i] - weights[i - 1])[:-1]))
+                    # Calculate sum of absolute weight changes
+                    weight_change = np.sum(np.abs(weights[i] - weights[i - 1]))
+                    period_var.append(weight_change)
                 
-                weight_comp[name] = np.array(yearly_var)
+                weight_comp[name] = np.array(period_var)
 
             weight_comp = pd.DataFrame.from_dict(weight_comp).set_index('period')
             weight_comp.to_excel(f'{output_dir}/{freq}/Weights/Comparison.xlsx')
             weight_comp.drop('S&P BnH', axis=1).plot(kind='bar', figsize=(18, 8))
-            plt.title('Mean Weight Allocation Change')
-            plt.savefig(f'{output_dir}/{freq}/Weights/Comparison.png', bbox_inches='tight')
+            plt.title('Sum of Absolute Weight Changes by Period')
+            plt.ylabel('Total Weight Change (fraction)')
+            plt.xlabel('Period')
+            plt.xticks(rotation=45, ha='right')
+            plt.legend(loc='best')
+            plt.grid(True, alpha=0.3)
+            plt.savefig(f'{output_dir}/{freq}/Weights/Comparison.png', bbox_inches='tight', dpi=150)
             plt.close()
 
             # Transaction Cost Analysis
@@ -119,20 +144,24 @@ if __name__ == '__main__':
                 }
 
                 returns = all_stats[portfolio]['Return'] / 100
-                periods = list(returns.index) + [f"{int(os.getenv('END_YEAR')) + 1}-01-01"]
-                if portfolio == 'S&P BnH' or portfolio == 'Equal':
-                    weight_change = weight_comp[portfolio] * 1
-                else:
-                    weight_change = weight_comp[portfolio] * 9
+                periods = list(returns.index)
+                weight_change = weight_comp[portfolio]
 
-                for i in range(1, len(periods)):
-                    pv *= (1 + returns[periods[i - 1]])
+                for i in range(len(periods)):
+                    # Apply return from this period
+                    pv *= (1 + returns[periods[i]])
                     df['period'].append(periods[i])
                     df[(portfolio, 'Invested')].append(pv)
                     
-                    cost = weight_change[periods[i]] * pv * transaction_cost
-                    df[(portfolio, 'Transaction Cost')].append(cost)
-                    pv -= cost
+                    # Transaction cost incurred at the start of next period (if exists)
+                    if periods[i] in weight_change.index:
+                        cost = weight_change[periods[i]] * pv * transaction_cost
+                        df[(portfolio, 'Transaction Cost')].append(cost)
+                        pv -= cost
+                    else:
+                        # No rebalancing at first period
+                        df[(portfolio, 'Transaction Cost')].append(0)
+                    
                     df[(portfolio, 'Net Invested')].append(pv)
                 
                 df = pd.DataFrame.from_dict(df).set_index('period')
@@ -144,9 +173,12 @@ if __name__ == '__main__':
 
             temp = collector[[(portfolio, 'Net Invested') for portfolio in weight_comp.columns]]
             temp.columns = [portfolio for portfolio in weight_comp.columns]
-            temp.plot(kind='line', figsize=(18, 8))
-            plt.title('Net Invested Amount Over Time')
-            plt.grid(True)
+            temp.plot(kind='line', figsize=(18, 8), linewidth=2)
+            plt.title('Portfolio Value After Transaction Costs')
+            plt.ylabel('Portfolio Value ($)')
+            plt.xlabel('Period')
+            plt.legend(loc='best')
+            plt.grid(True, alpha=0.3)
             plt.savefig(f'{output_dir}/{freq}/Portfolio Value with Transaction Costs.png',
-                        bbox_inches='tight')
+                        bbox_inches='tight', dpi=150)
             plt.close()
