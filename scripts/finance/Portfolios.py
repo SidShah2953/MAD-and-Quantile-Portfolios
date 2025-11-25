@@ -68,8 +68,9 @@ class MADPortfolio(BasePortfolio):
         """
         Calculate Mean Absolute Deviation portfolio weights
         """
-        # Convert annual risk to period risk (MAD scales with sqrt of time like volatility)
-        max_risk = max_risk * np.sqrt(self.period_length / get_trading_days('1y'))
+        # Scale annual max_risk to daily level for comparison with daily MAD
+        # Assuming MAD scales with sqrt(time) for consistent comparison
+        max_risk_daily = max_risk / np.sqrt(get_trading_days('1y'))
         R = self._load_returns(based_on).to_numpy()
         
         def risk(weights):
@@ -77,6 +78,8 @@ class MADPortfolio(BasePortfolio):
             mu = np.mean(R_weighted)
             mad = np.mean(np.abs(R_weighted - mu))
             return mad
+        
+        return self._optimize_weights(based_on, max_risk_daily, risk)
             
         return self._optimize_weights(based_on, max_risk, risk)
 
@@ -95,8 +98,9 @@ class IQRPortfolio(BasePortfolio):
         """
         Calculate Interquartile Range portfolio weights
         """
-        # Convert annual risk to period risk (IQR scales with sqrt of time)
-        max_risk = max_risk * np.sqrt(self.period_length / get_trading_days('1y'))
+        # Scale annual max_risk to daily level for comparison with daily IQR
+        # Assuming IQR scales with sqrt(time) for consistent comparison
+        max_risk_daily = max_risk / np.sqrt(get_trading_days('1y'))
         R = self._load_returns(based_on).to_numpy()
 
         lower = self.trim / 2
@@ -107,5 +111,7 @@ class IQRPortfolio(BasePortfolio):
             q_upper, q_lower = np.percentile(R_weighted, [upper * 100, lower * 100])
             iqr = q_upper - q_lower
             return iqr
+        
+        return self._optimize_weights(based_on, max_risk_daily, risk)
             
         return self._optimize_weights(based_on, max_risk, risk)
