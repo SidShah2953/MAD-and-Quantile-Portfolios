@@ -9,15 +9,9 @@ from scripts.analysis.helpers import get_report
 from scripts.finance.Portfolios import BuyAndHold
 from scripts.finance.Portfolios import StdDevPortfolio, MADPortfolio, IQRPortfolio
 
-max_risk = 0.10
 initial_value = 100
 transaction_cost = 0.15 / 100
 MAX_ALLOC = os.getenv('MAX_ALLOC')
-
-output_dir = './Output'
-os.makedirs(output_dir, exist_ok=True)
-output_dir = f'{output_dir}/{max_risk:.2%}'
-os.makedirs(output_dir, exist_ok=True)
 
 freqs = [
     '1mo',
@@ -34,7 +28,12 @@ portfolios = {
 }
 
 
-if __name__ == '__main__':
+def generate_reports(max_risk):
+    output_dir = './Output'
+    os.makedirs(output_dir, exist_ok=True)
+    output_dir = f'{output_dir}/{max_risk:.2%}'
+    os.makedirs(output_dir, exist_ok=True)
+
     progress_bar = alive_bar(
         len(freqs) * len(portfolios),
         title=f'Generating Reports for Max Risk: {max_risk:.2%}',
@@ -185,3 +184,8 @@ if __name__ == '__main__':
             plt.savefig(f'{output_dir}/{freq}/Portfolio Value with Transaction Costs.png',
                         bbox_inches='tight', dpi=150)
             plt.close()
+
+if __name__ == '__main__':
+    risks = [0.05, 0.10, 0.15]
+    for max_risk in risks:
+        generate_reports(max_risk=max_risk)
