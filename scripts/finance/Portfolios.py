@@ -103,26 +103,14 @@ class IQRPortfolio(BasePortfolio):
         # Convert annual max_risk (in volatility terms) to period-level
         max_risk_period = max_risk * np.sqrt(self.period_length / get_trading_days('1y'))
         
-        # Convert volatility constraint to IQR constraint
-        # For normal distribution: IQR ≈ 1.349 * σ
-        # Standard IQR uses Q75-Q25, which captures ~50% of the distribution (two-sided)
-        # If using custom trim, adjust accordingly
-        if self.trim == 0.5:
-            # Standard IQR: Q75 - Q25 ≈ 1.349σ
-            max_iqr = max_risk_period * 2
-        else:
-            # For custom percentiles, use z-score difference
-            from scipy.stats import norm
-            lower = self.trim / 2
-            upper = 1 - self.trim / 2
-            z_upper = norm.ppf(upper)
-            z_lower = norm.ppf(lower)
-            max_iqr = max_risk_period * (z_upper - z_lower)
+        lower = self.trim / 2
+        upper = 1 - self.trim / 2
+
+        max_iqr = max_risk_period * 2 * (1 - self.trim) / 0.5
         
         R = self._load_returns(based_on).to_numpy()
 
-        lower = self.trim / 2
-        upper = 1 - self.trim / 2
+
 
         def risk(weights):
             R_weighted = R @ weights
