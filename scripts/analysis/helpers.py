@@ -8,7 +8,7 @@ def get_report(portfolio, parameters):
     stats_df = po.calculate_performance(parameters['max_risk'])
 
     for col in stats_df.columns:
-        if col in ['Sharpe', 'Sharpe_MAD', 'Sharpe_IQR']:
+        if col in ['Sharpe', 'Sharpe_MAD', 'Sharpe_IQR', 'RAR_Vol', 'RAR_MAD', 'RAR_IQR']:
             stats_df[col] = stats_df[col].round(4)
         elif col == 'PV':
             stats_df[col] = stats_df[col].round(2)

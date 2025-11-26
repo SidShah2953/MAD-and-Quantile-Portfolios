@@ -78,6 +78,9 @@ if __name__ == '__main__':
                 'Sharpe': 'Sharpe Ratio (Vol)',
                 'Sharpe_MAD': 'Sharpe Ratio (MAD)',
                 'Sharpe_IQR': 'Sharpe Ratio (IQR)',
+                'RAR_Vol': 'Risk-Adjusted Return (Vol)',
+                'RAR_MAD': 'Risk-Adjusted Return (MAD)',
+                'RAR_IQR': 'Risk-Adjusted Return (IQR)',
                 'MDD': 'Maximum Drawdown (%)',
                 'PV': 'Portfolio Value ($)'
             }

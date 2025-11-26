@@ -44,6 +44,9 @@ class BasePortfolio(ABC):
             'Sharpe': {},
             'Sharpe_MAD': {},
             'Sharpe_IQR': {},
+            'RAR_Vol': {},
+            'RAR_MAD': {},
+            'RAR_IQR': {},
             'MDD': {},
         }
 
@@ -125,6 +128,9 @@ class BasePortfolio(ABC):
         self.performance['Sharpe'][self.periods[0]] = np.nan
         self.performance['Sharpe_MAD'][self.periods[0]] = np.nan
         self.performance['Sharpe_IQR'][self.periods[0]] = np.nan
+        self.performance['RAR_Vol'][self.periods[0]] = np.nan
+        self.performance['RAR_MAD'][self.periods[0]] = np.nan
+        self.performance['RAR_IQR'][self.periods[0]] = np.nan
         self.performance['MDD'][self.periods[0]] = np.nan
 
         for i in range(1, len(self.periods)):
@@ -161,6 +167,16 @@ class BasePortfolio(ABC):
             
             # Calculate Sharpe ratio with IQR
             self.performance['Sharpe_IQR'][current_period] = annualized_return / self.performance['IQR'][current_period] if self.performance['IQR'][current_period] != 0 else np.nan
+            
+            # Calculate period-level risk-adjusted returns (no annualization)
+            period_return = self.performance['Return'][current_period]
+            period_volatility = np.std(portfolio_return)
+            period_mad = np.mean(np.abs(portfolio_return - mu))
+            period_iqr = (q75 - q25)
+            
+            self.performance['RAR_Vol'][current_period] = period_return / period_volatility if period_volatility != 0 else np.nan
+            self.performance['RAR_MAD'][current_period] = period_return / period_mad if period_mad != 0 else np.nan
+            self.performance['RAR_IQR'][current_period] = period_return / period_iqr if period_iqr != 0 else np.nan
             
             self.performance['MDD'][current_period] = max_drawdown(portfolio_return)
 
