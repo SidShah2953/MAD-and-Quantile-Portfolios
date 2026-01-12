@@ -33,7 +33,7 @@ class BasePortfolio(ABC):
         self.periods = list(sorted(self.data.index.unique()))
         self.period_length = get_trading_days(freq)
 
-        self.max_alloc = os.getenv('MAX_ALLOC') if max_alloc is None else max_alloc
+        self.max_alloc = float(os.getenv('MAX_ALLOC')) if max_alloc is None else max_alloc
         self.weights = pd.DataFrame(columns=self.data.columns)
 
         self.performance = {
@@ -70,7 +70,12 @@ class BasePortfolio(ABC):
         else:
             bounds = [(0, self.max_alloc)] * n_assets
             
-        initial_weights = np.zeros(n_assets)
+        # Initialize with equal weights that satisfy sum-to-one constraint
+        if 'CSH' in self.etfs:
+            initial_weights = np.ones(n_assets - 1) / (n_assets - 1)
+            initial_weights = np.append(initial_weights, 0)
+        else:
+            initial_weights = np.ones(n_assets) / n_assets
         
         return R, mu, n_assets, bounds, initial_weights
 

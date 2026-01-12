@@ -10,8 +10,8 @@ from scripts.finance.Portfolios import BuyAndHold
 from scripts.finance.Portfolios import StdDevPortfolio, MADPortfolio, IQRPortfolio
 
 initial_value = 100
-transaction_cost = 0.15 / 100
-MAX_ALLOC = os.getenv('MAX_ALLOC')
+transaction_cost = 1e-2  # 1% transaction cost
+MAX_ALLOC = float(os.getenv('MAX_ALLOC'))
 
 freqs = [
     '1mo',
@@ -28,8 +28,8 @@ portfolios = {
 }
 
 
-def generate_reports(max_risk):
-    output_dir = './Output'
+def generate_reports(max_risk, transaction_cost=transaction_cost):
+    output_dir = f'./Output/{transaction_cost:.0%} Transaction Cost'
     os.makedirs(output_dir, exist_ok=True)
     output_dir = f'{output_dir}/{max_risk:.2%}'
     os.makedirs(output_dir, exist_ok=True)
@@ -150,12 +150,9 @@ def generate_reports(max_risk):
                 weight_change = weight_comp[portfolio]
 
                 for i in range(len(periods)):
-                    # Apply return from this period
-                    pv *= (1 + returns[periods[i]])
                     df['period'].append(periods[i])
-                    df[(portfolio, 'Invested')].append(pv)
                     
-                    # Transaction cost incurred at the start of next period (if exists)
+                    # Transaction cost incurred at the start of period (when rebalancing)
                     if periods[i] in weight_change.index:
                         cost = weight_change[periods[i]] * pv * transaction_cost
                         df[(portfolio, 'Transaction Cost')].append(cost)
@@ -163,6 +160,11 @@ def generate_reports(max_risk):
                     else:
                         # No rebalancing at first period
                         df[(portfolio, 'Transaction Cost')].append(0)
+                    
+                    df[(portfolio, 'Invested')].append(pv)
+                    
+                    # Apply return from this period (after transaction costs)
+                    pv *= (1 + returns[periods[i]])
                     
                     df[(portfolio, 'Net Invested')].append(pv)
                 
@@ -186,6 +188,10 @@ def generate_reports(max_risk):
             plt.close()
 
 if __name__ == '__main__':
-    risks = [0.05, 0.10, 0.15]
-    for max_risk in risks:
-        generate_reports(max_risk=max_risk)
+    transaction_costs = [0, 0.01, 0.02]  # Different transaction costs to analyze
+    risks = [0.05, 0.10, 0.15, 0.20]
+    for transaction_cost in transaction_costs:
+        print(f'Assuming transaction cost: {transaction_cost:.2%}')
+        for max_risk in risks:
+            generate_reports(max_risk=max_risk, transaction_cost=transaction_cost)
+        print()

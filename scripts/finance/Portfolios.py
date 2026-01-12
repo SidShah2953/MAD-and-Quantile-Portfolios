@@ -70,10 +70,8 @@ class MADPortfolio(BasePortfolio):
         # Convert annual max_risk (in volatility terms) to period-level
         max_risk_period = max_risk * np.sqrt(self.period_length / get_trading_days('1y'))
         
-        # Convert volatility constraint to MAD constraint
-        # For normal distribution: MAD ≈ 0.7979 * σ
-        # So if max_risk is in σ terms, MAD constraint should be 0.7979 * max_risk
-        max_mad = max_risk_period
+        # For log-normal returns (small returns approximation): MAD ≈ σ * sqrt(2/π) ≈ 0.798σ
+        max_mad = max_risk_period * np.sqrt(2 / np.pi)
         
         R = self._load_returns(based_on).to_numpy()
         
@@ -106,11 +104,11 @@ class IQRPortfolio(BasePortfolio):
         lower = self.trim / 2
         upper = 1 - self.trim / 2
 
-        max_iqr = max_risk_period * 2 * (1 - self.trim) / 0.5
+        # For log-normal returns (small returns approximation): IQR ≈ 2σ * Φ^(-1)(upper)
+        # For standard IQR (25th-75th): IQR ≈ 1.349σ
+        max_iqr = max_risk_period * 2 * norm.ppf(upper)
         
         R = self._load_returns(based_on).to_numpy()
-
-
 
         def risk(weights):
             R_weighted = R @ weights
