@@ -51,7 +51,17 @@ END_YEAR=2023
 │   ├── Raw/                 # Raw data files downloaded from Yahoo Finance
 │   └── combined.csv         # Processed and combined return data
 ├── Output/                  # Results and visualizations
-├── Paper/                   # Sample analysis and code examples
+├── Paper/                   # Paper (LaTeX) and supporting assets
+│   ├── LaTeX/               # Manuscript + generated tables + figures
+│   │   ├── main.tex         # Main LaTeX document
+│   │   ├── compile.sh       # Compile script (use --rebuild for full build)
+│   │   ├── tables/          # Auto-generated LaTeX tables
+│   │   └── figures/         # Auto-generated figure PDFs
+│   └── scripts/             # Paper automation (table/figure generation)
+│       ├── build_all.py     # Main build script
+│       ├── tables/          # Table generation scripts
+│       ├── figures/         # Figure generation scripts
+│       └── utils/           # Shared utilities
 ├── scripts/
 │   ├── analysis/            # Analysis and reporting utilities
 │   ├── data/                # Data collection and processing scripts
@@ -122,3 +132,47 @@ performance = portfolio.calculate_performance(max_risk=0.15)  # 15% maximum risk
 
 The `Paper/Dummy Example/Code.ipynb` notebook contains a simplified example of the portfolio optimization process using sample data.
 
+## Building the Research Paper
+
+After running the backtest and generating Output files, you can build the complete research paper:
+
+### Quick Build (One Command)
+```bash
+cd Paper/LaTeX
+./compile.sh --rebuild
+```
+
+This will:
+1. Generate all tables from Output data
+2. Generate all figures (motivation plots, PV curves, heatmaps, etc.)
+3. Compile the LaTeX document to PDF
+
+### LaTeX-Only Compilation
+
+If tables and figures are already up to date:
+```bash
+cd Paper/LaTeX
+./compile.sh
+```
+
+### Step-by-Step Build
+
+If you prefer more control:
+
+```bash
+# Generate tables and figures
+cd Paper/scripts
+python build_all.py
+
+# Or generate only tables or figures
+python build_all.py --tables-only
+python build_all.py --figures-only
+
+# Then compile the PDF
+cd ../LaTeX
+./compile.sh
+```
+
+The compiled paper will be at `Paper/LaTeX/main.pdf`.
+
+For more details on the paper build system, see `Paper/scripts/README.md`.
