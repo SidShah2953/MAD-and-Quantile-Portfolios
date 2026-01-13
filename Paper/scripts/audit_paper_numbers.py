@@ -329,7 +329,6 @@ def audit_tc_summary_10pct(project_root: Path) -> list[str]:
 def audit_comparability_notes() -> list[str]:
     return [
         "NOTE: Metrics/* are computed from daily returns within each holding period; Sharpe columns are annualized-return-per-period divided by annualized risk computed from daily returns in that period.",
-        "NOTE: The bootstrap inference table uses holding-period returns (net of costs) and an annualized-return/annualized-vol proxy based on holding-period return volatility; do not compare bootstrap Sharpe values 1:1 with the daily-based Sharpe metric.",
         "NOTE: Terminal PV is directly comparable only within the same transaction-cost scenario and same initial value. Cross-frequency comparisons embed different numbers of rebalances and thus different cost incidence.",
     ]
 

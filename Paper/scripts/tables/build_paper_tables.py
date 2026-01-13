@@ -4,7 +4,6 @@ import math
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Iterable
-from typing import Callable
 
 import pandas as pd
 
@@ -62,47 +61,6 @@ def _annualized_sharpe_from_period_returns(period_returns: pd.Series, period_day
     return float(ann_ret / ann_vol)
 
 
-def _moving_block_bootstrap_indices(n: int, block_len: int, rng) -> list[int]:
-    if n <= 0:
-        return []
-    block_len = max(1, min(int(block_len), n))
-    starts = list(range(0, n - block_len + 1))
-    out: list[int] = []
-    while len(out) < n:
-        s = rng.choice(starts)
-        out.extend(list(range(s, s + block_len)))
-    return out[:n]
-
-
-def _bootstrap_ci(
-    x: pd.Series,
-    y: pd.Series,
-    statistic: Callable[[pd.Series], float],
-    n_boot: int,
-    block_len: int,
-    seed: int,
-) -> tuple[float, float, float]:
-    """Bootstrap CI for statistic(x) - statistic(y) with moving blocks."""
-    xs = x.reset_index(drop=True)
-    ys = y.reset_index(drop=True)
-    n = min(len(xs), len(ys))
-    xs = xs.iloc[:n]
-    ys = ys.iloc[:n]
-    if n == 0:
-        return float("nan"), float("nan"), float("nan")
-
-    import numpy as np
-
-    rng = np.random.default_rng(seed)
-    diffs = []
-    for _ in range(int(n_boot)):
-        idx = _moving_block_bootstrap_indices(n, block_len=block_len, rng=rng)
-        diffs.append(statistic(xs.iloc[idx]) - statistic(ys.iloc[idx]))
-
-    diffs = np.asarray(diffs, dtype=float)
-    point = statistic(xs) - statistic(ys)
-    lo, hi = np.nanpercentile(diffs, [2.5, 97.5])
-    return float(point), float(lo), float(hi)
 
 
 def _parse_period_index(index: pd.Index) -> pd.DatetimeIndex:
@@ -654,153 +612,7 @@ def build_tables(project_root: Path) -> None:
         "tab:app-netpv-2",
     )
 
-    # --- Inference: bootstrap CIs (10% risk, 6mo & 1y, 0% cost) ---
-    def bootstrap_inference_10pct() -> None:
-        risk = "10.00%"
-        freqs = ["6mo", "1y"]
-        compare_to = "Volatility"
-        strategies = ["MAD", "IQR", "95%"]
-
-        tc_labels = ["0% Transaction Cost", "1% Transaction Cost", "2% Transaction Cost"]
-
-        rows = []
-        takeaway_rows = []
-        for tc_label in tc_labels:
-            for freq in freqs:
-                cfg = Config(tc_label, risk, freq)
-                if cfg not in configs:
-                    continue
-
-                period_days = FREQ_TRADING_DAYS.get(freq)
-                if period_days is None:
-                    continue
-
-                tc_book = read_transaction_cost_book(output_root, cfg)
-
-                def period_returns_for(strategy: str) -> pd.Series:
-                    if (strategy, "Invested") not in tc_book.columns or (strategy, "Net Invested") not in tc_book.columns:
-                        return pd.Series(dtype=float)
-                    invested = tc_book[(strategy, "Invested")].astype(float)
-                    net = tc_book[(strategy, "Net Invested")].astype(float)
-                    r = (net / invested) - 1.0
-                    r = r.replace([math.inf, -math.inf], pd.NA).dropna()
-                    # Drop the first row (often a placeholder period in the backtest outputs)
-                    if len(r) > 0:
-                        r = r.iloc[1:]
-                    return r
-
-                base_r = period_returns_for(compare_to)
-                if len(base_r) == 0:
-                    continue
-
-                # Block length: 2 for 6mo to allow some dependence; 1 for 1y.
-                block_len = 2 if freq == "6mo" else 1
-                n_boot = 2000
-
-                ann_stat = lambda s: _annualized_return_from_period_returns(s, period_days=period_days)
-                sh_stat = lambda s: _annualized_sharpe_from_period_returns(s, period_days=period_days)
-
-                for strat in strategies:
-                    strat_r = period_returns_for(strat)
-                    if len(strat_r) == 0:
-                        continue
-
-                    ann_point, ann_lo, ann_hi = _bootstrap_ci(
-                        strat_r,
-                        base_r,
-                        statistic=ann_stat,
-                        n_boot=n_boot,
-                        block_len=block_len,
-                        seed=12345,
-                    )
-                    sh_point, sh_lo, sh_hi = _bootstrap_ci(
-                        strat_r,
-                        base_r,
-                        statistic=sh_stat,
-                        n_boot=n_boot,
-                        block_len=block_len,
-                        seed=54321,
-                    )
-
-                    rows.append(
-                        {
-                            "TC": tc_label,
-                            "Frequency": freq,
-                            "Comparison": f"{strat} - {compare_to}",
-                            "Δ AnnReturn": ann_point,
-                            "CI AnnReturn": f"[{_format_percent(ann_lo, 2)}, {_format_percent(ann_hi, 2)}]",
-                            "Δ Sharpe": sh_point,
-                            "CI Sharpe": f"[{_format_number(sh_lo, 3)}, {_format_number(sh_hi, 3)}]",
-                        }
-                    )
-
-                    takeaway_rows.append(
-                        {
-                            "TC": tc_label,
-                            "Frequency": freq,
-                            "Comparison": f"{strat} - {compare_to}",
-                            "ann_lo": ann_lo,
-                            "ann_hi": ann_hi,
-                            "sh_lo": sh_lo,
-                            "sh_hi": sh_hi,
-                        }
-                    )
-
-        if not rows:
-            return
-
-        df = pd.DataFrame(rows)
-        df["TC"] = df["TC"].map(latex_escape_text)
-        df["Frequency"] = df["Frequency"].map(latex_escape_text)
-        df["Comparison"] = df["Comparison"].map(latex_escape_text)
-        df["Δ AnnReturn"] = df["Δ AnnReturn"].map(lambda x: _format_percent(x, 2))
-        df["Δ Sharpe"] = df["Δ Sharpe"].map(lambda x: _format_number(x, 3))
-
-        tab = df[["TC", "Frequency", "Comparison", "Δ AnnReturn", "CI AnnReturn", "Δ Sharpe", "CI Sharpe"]].to_latex(
-            index=False,
-            escape=False,
-        )
-        write_table(
-            tables_root / "inference_bootstrap_10pct.tex",
-            "Moving-block bootstrap (95\\% CI) for differences in annualized return and an annualized Sharpe proxy versus the volatility-constrained strategy at 10\\% risk budget. Net-of-cost holding-period returns are computed from the backtest transaction-cost ledger. Period returns are resampled in blocks (length 2 for 6mo; length 1 for 1y).",
-            "tab:bootstrap-10pct",
-            tab,
-        )
-
-        # Auto-generate a compact interpretive paragraph based on whether CIs exclude 0.
-        take = pd.DataFrame(takeaway_rows)
-
-        def _sig_label(lo: float, hi: float) -> str:
-            if pd.isna(lo) or pd.isna(hi):
-                return "inconclusive"
-            if lo > 0:
-                return "positive"
-            if hi < 0:
-                return "negative"
-            return "indistinguishable"
-
-        lines = []
-        lines.append("\\paragraph{How to read the table.} If a 95\\% CI for $\\Delta$ annualized return (or $\\Delta$ Sharpe) excludes 0, the difference is statistically distinguishable under the moving-block bootstrap. If the CI includes 0, the result is statistically indistinguishable at that level. Economic significance should be judged by the magnitude of $\\Delta$ annualized return and whether it survives transaction costs.")
-
-        for tc_label in tc_labels:
-            sub = take[take["TC"] == tc_label]
-            if len(sub) == 0:
-                continue
-            for freq in freqs:
-                sf = sub[sub["Frequency"] == freq]
-                if len(sf) == 0:
-                    continue
-                ann_counts = sf.apply(lambda r: _sig_label(r["ann_lo"], r["ann_hi"]), axis=1).value_counts().to_dict()
-                sh_counts = sf.apply(lambda r: _sig_label(r["sh_lo"], r["sh_hi"]), axis=1).value_counts().to_dict()
-                lines.append(
-                    f"\\paragraph{{Summary at {latex_escape_text(tc_label)} ({latex_escape_text(freq)})}} "
-                    f"$\\Delta$ annualized return: {ann_counts.get('positive', 0)} positive, {ann_counts.get('negative', 0)} negative, {ann_counts.get('indistinguishable', 0)} indistinguishable. "
-                    f"$\\Delta$ Sharpe: {sh_counts.get('positive', 0)} positive, {sh_counts.get('negative', 0)} negative, {sh_counts.get('indistinguishable', 0)} indistinguishable."
-                )
-
-        (tables_root / "inference_bootstrap_10pct_takeaways.tex").write_text("\n\n".join(lines) + "\n")
-
-    bootstrap_inference_10pct()
+    # Note: Inference tables were intentionally removed from the paper build.
 
     print(f"Wrote tables to: {tables_root}")
 
