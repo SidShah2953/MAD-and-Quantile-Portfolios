@@ -188,7 +188,7 @@ def generate_reports(max_risk, transaction_cost=transaction_cost):
             plt.close()
 
 if __name__ == '__main__':
-    transaction_costs = [0, 0.01, 0.02]  # Different transaction costs to analyze
+    transaction_costs = [0, 0.01 / 100, 0.02 / 100]  # Different transaction costs to analyze
     risks = [0.05, 0.10, 0.15, 0.20]
     for transaction_cost in transaction_costs:
         print(f'Assuming transaction cost: {transaction_cost:.2%}')
