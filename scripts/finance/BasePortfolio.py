@@ -12,7 +12,7 @@ load_dotenv()
 
 
 class BasePortfolio(ABC):
-    def __init__(self, freq, max_alloc=None, use_index_etf=False):
+    def __init__(self, freq, max_alloc=None, use_index_etf=False, optimizer_method=None, optimizer_options=None):
         """
         Initialize base portfolio class
         """
@@ -35,6 +35,9 @@ class BasePortfolio(ABC):
 
         self.max_alloc = float(os.getenv('MAX_ALLOC')) if max_alloc is None else max_alloc
         self.weights = pd.DataFrame(columns=self.data.columns)
+
+        self.optimizer_method = (optimizer_method or os.getenv('OPTIMIZER_METHOD', 'SLSQP')).upper()
+        self.optimizer_options = optimizer_options or {}
 
         self.performance = {
             'Return': {},
@@ -80,7 +83,7 @@ class BasePortfolio(ABC):
         return R, mu, n_assets, bounds, initial_weights
 
 
-    def _optimize_weights(self, based_on, max_risk, risk_fn, objective_fn=None):
+    def _optimize_weights(self, based_on, max_risk, risk_fn, objective_fn=None, method=None, options=None):
         """
         Template method for portfolio optimization
         """
@@ -89,20 +92,60 @@ class BasePortfolio(ABC):
         if objective_fn is None:
             objective_fn = lambda w: -np.dot(w, mu)
             
-        constraints = ({
-            'type': 'eq',
-            'fun': lambda w: np.sum(w) - 1
-        },
-        {
-            'type': 'ineq',
-            'fun': lambda w: max_risk - risk_fn(w)
-        })
-        
-        result = minimize(objective_fn,
-                        initial_weights,
-                        method='SLSQP',
-                        bounds=bounds,
-                        constraints=constraints)
+        chosen_method = (method or self.optimizer_method or 'SLSQP').upper()
+        chosen_options = dict(self.optimizer_options)
+        if options:
+            chosen_options.update(options)
+
+        if chosen_method == 'COBYLA':
+            eq_tol = float(os.getenv('OPTIMIZER_EQ_TOL', '1e-8'))
+            constraints = [
+                {
+                    'type': 'ineq',
+                    'fun': lambda w: max_risk - risk_fn(w)
+                },
+                {
+                    'type': 'ineq',
+                    'fun': lambda w: np.sum(w) - 1 + eq_tol
+                },
+                {
+                    'type': 'ineq',
+                    'fun': lambda w: 1 - np.sum(w) + eq_tol
+                },
+            ]
+
+            # COBYLA doesn't accept bounds; encode them as inequality constraints.
+            for i, (lb, ub) in enumerate(bounds):
+                constraints.append({'type': 'ineq', 'fun': lambda w, i=i, lb=lb: w[i] - lb})
+                constraints.append({'type': 'ineq', 'fun': lambda w, i=i, ub=ub: ub - w[i]})
+
+            result = minimize(
+                objective_fn,
+                initial_weights,
+                method='COBYLA',
+                constraints=constraints,
+                options=chosen_options or {'maxiter': 2000}
+            )
+        else:
+            constraints = [
+                {
+                    'type': 'eq',
+                    'fun': lambda w: np.sum(w) - 1
+                },
+                {
+                    'type': 'ineq',
+                    'fun': lambda w: max_risk - risk_fn(w)
+                },
+            ]
+
+            result = minimize(
+                objective_fn,
+                initial_weights,
+                method=chosen_method,
+                bounds=bounds,
+                constraints=constraints,
+                options=chosen_options
+            )
         
         if result.success:
             weights = pd.DataFrame(dict(zip(
@@ -111,7 +154,7 @@ class BasePortfolio(ABC):
                             )))
             return weights
         else:
-            raise ValueError("Optimization did not converge.")
+            raise ValueError(f"Optimization did not converge ({chosen_method}): {result.message}")
 
 
     @abstractmethod

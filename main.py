@@ -10,7 +10,7 @@ from scripts.finance.Portfolios import BuyAndHold
 from scripts.finance.Portfolios import StdDevPortfolio, MADPortfolio, IQRPortfolio
 
 initial_value = 100
-transaction_cost = 1e-2  # 1% transaction cost
+transaction_cost = 0  # 1% transaction cost
 MAX_ALLOC = float(os.getenv('MAX_ALLOC'))
 
 freqs = [
@@ -29,7 +29,7 @@ portfolios = {
 
 
 def generate_reports(max_risk, transaction_cost=transaction_cost):
-    output_dir = f'./Output/{transaction_cost:.0%} Transaction Cost'
+    output_dir = f'./Output/{transaction_cost * 10000:.0f} bps Transaction Cost'
     os.makedirs(output_dir, exist_ok=True)
     output_dir = f'{output_dir}/{max_risk:.2%}'
     os.makedirs(output_dir, exist_ok=True)
