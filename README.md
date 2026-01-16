@@ -109,6 +109,8 @@ After running the notebook, results will be available in the `Output` directory,
 - Performance metrics (Returns, Volatility, Sharpe Ratio, Maximum Drawdown)
 - Portfolio weights
 
+Note: the export scripts write raw output files (XLSX) by default. The total PV chart (portfolio value after transaction costs) is always exported; all other figures (PNGs) are generated during the paper build process, or can be explicitly enabled when running `main.py`.
+
 ## Custom Portfolio Optimization
 
 To create a custom portfolio optimization:
@@ -146,6 +148,14 @@ This will:
 1. Generate all tables from Output data
 2. Generate all figures (motivation plots, PV curves, heatmaps, etc.)
 3. Compile the LaTeX document to PDF
+
+## Optional: Export Figures from `main.py`
+
+By default, `main.py` exports only raw data (XLSX) into `Output/`. To also export PNG plots alongside the XLSX files:
+
+```bash
+python main.py --generate-figures
+```
 
 ### LaTeX-Only Compilation
 

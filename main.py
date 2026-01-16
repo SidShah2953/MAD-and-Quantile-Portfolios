@@ -1,7 +1,7 @@
 import os
-import matplotlib.pyplot as plt
 import pandas as pd
 import numpy as np
+import argparse
 
 from alive_progress import alive_bar
 
@@ -26,13 +26,15 @@ portfolios = {
     'IQR': IQRPortfolio,
     '95%': lambda **kwargs: IQRPortfolio(trim=0.05, **kwargs),
 }
-
-
-def generate_reports(max_risk, transaction_cost=transaction_cost):
+def generate_reports(max_risk, transaction_cost=transaction_cost, generate_figures: bool = False):
     output_dir = f'./Output/{transaction_cost * 10000:.0f} bps Transaction Cost'
     os.makedirs(output_dir, exist_ok=True)
     output_dir = f'{output_dir}/{max_risk:.2%}'
     os.makedirs(output_dir, exist_ok=True)
+
+    plt = None
+    if generate_figures:
+        import matplotlib.pyplot as plt  # type: ignore
 
     progress_bar = alive_bar(
         len(freqs) * len(portfolios),
@@ -91,22 +93,23 @@ def generate_reports(max_risk, transaction_cost=transaction_cost):
                                 ], axis=1)
                 stat_graph_df.to_excel(f'{output_dir}/{freq}/Metrics/{stat}.xlsx', index=True)
                 
-                ylabel = metric_labels.get(stat, stat)
-                
-                if stat == 'PV':
-                    stat_graph_df.plot(kind='line', figsize=(18, 8))
-                    plt.ylabel(ylabel)
-                    plt.xlabel('Period')
-                else:
-                    stat_graph_df.plot(kind='bar', figsize=(18, 8))
-                    plt.ylabel(ylabel)
-                    plt.xlabel('Period')
-                plt.xticks(rotation=45, ha='right')
-                plt.title(f"{metric_labels.get(stat, stat)} Comparison (Rebalanced {freq})")
-                plt.legend(loc='best')
-                plt.grid(True, alpha=0.3)
-                plt.savefig(f'{output_dir}/{freq}/Metrics/{stat}.png', bbox_inches='tight', dpi=150)
-                plt.close()
+                if generate_figures:
+                    ylabel = metric_labels.get(stat, stat)
+
+                    if stat == 'PV':
+                        stat_graph_df.plot(kind='line', figsize=(18, 8))
+                        plt.ylabel(ylabel)
+                        plt.xlabel('Period')
+                    else:
+                        stat_graph_df.plot(kind='bar', figsize=(18, 8))
+                        plt.ylabel(ylabel)
+                        plt.xlabel('Period')
+                    plt.xticks(rotation=45, ha='right')
+                    plt.title(f"{metric_labels.get(stat, stat)} Comparison (Rebalanced {freq})")
+                    plt.legend(loc='best')
+                    plt.grid(True, alpha=0.3)
+                    plt.savefig(f'{output_dir}/{freq}/Metrics/{stat}.png', bbox_inches='tight', dpi=150)
+                    plt.close()
 
             # Analysis on period change of weights
             weight_comp = {
@@ -124,15 +127,16 @@ def generate_reports(max_risk, transaction_cost=transaction_cost):
 
             weight_comp = pd.DataFrame.from_dict(weight_comp).set_index('period')
             weight_comp.to_excel(f'{output_dir}/{freq}/Weights/Comparison.xlsx')
-            weight_comp.drop('S&P BnH', axis=1).plot(kind='bar', figsize=(18, 8))
-            plt.title('Sum of Absolute Weight Changes by Period')
-            plt.ylabel('Total Weight Change (fraction)')
-            plt.xlabel('Period')
-            plt.xticks(rotation=45, ha='right')
-            plt.legend(loc='best')
-            plt.grid(True, alpha=0.3)
-            plt.savefig(f'{output_dir}/{freq}/Weights/Comparison.png', bbox_inches='tight', dpi=150)
-            plt.close()
+            if generate_figures:
+                weight_comp.drop('S&P BnH', axis=1).plot(kind='bar', figsize=(18, 8))
+                plt.title('Sum of Absolute Weight Changes by Period')
+                plt.ylabel('Total Weight Change (fraction)')
+                plt.xlabel('Period')
+                plt.xticks(rotation=45, ha='right')
+                plt.legend(loc='best')
+                plt.grid(True, alpha=0.3)
+                plt.savefig(f'{output_dir}/{freq}/Weights/Comparison.png', bbox_inches='tight', dpi=150)
+                plt.close()
 
             # Transaction Cost Analysis
             collector = []
@@ -177,21 +181,36 @@ def generate_reports(max_risk, transaction_cost=transaction_cost):
 
             temp = collector[[(portfolio, 'Net Invested') for portfolio in weight_comp.columns]]
             temp.columns = [portfolio for portfolio in weight_comp.columns]
+            # Always export the total PV chart.
+            if plt is None:
+                import matplotlib.pyplot as plt  # type: ignore
+
             temp.plot(kind='line', figsize=(18, 8), linewidth=2)
             plt.title('Portfolio Value After Transaction Costs')
             plt.ylabel('Portfolio Value ($)')
             plt.xlabel('Period')
             plt.legend(loc='best')
             plt.grid(True, alpha=0.3)
-            plt.savefig(f'{output_dir}/{freq}/Portfolio Value with Transaction Costs.png',
-                        bbox_inches='tight', dpi=150)
+            plt.savefig(
+                f'{output_dir}/{freq}/Portfolio Value with Transaction Costs.png',
+                bbox_inches='tight',
+                dpi=150
+            )
             plt.close()
 
 if __name__ == '__main__':
+    parser = argparse.ArgumentParser(description='Run portfolio backtests and export output files.')
+    parser.add_argument(
+        '--generate-figures',
+        action='store_true',
+        help='Also export PNG figures alongside the raw XLSX output files (default: off).'
+    )
+    args = parser.parse_args()
+
     transaction_costs = [0, 0.01 / 100, 0.02 / 100]  # Different transaction costs to analyze
-    risks = [0.05, 0.10, 0.15, 0.20]
+    risks = [0.05, 0.10, 0.15]
     for transaction_cost in transaction_costs:
         print(f'Assuming transaction cost: {transaction_cost:.2%}')
         for max_risk in risks:
-            generate_reports(max_risk=max_risk, transaction_cost=transaction_cost)
+            generate_reports(max_risk=max_risk, transaction_cost=transaction_cost, generate_figures=args.generate_figures)
         print()
