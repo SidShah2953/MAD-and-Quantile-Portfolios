@@ -43,7 +43,7 @@ FIGURES_ROOT.mkdir(parents=True, exist_ok=True)
 STRATEGY_ORDER = ["S&P BnH", "Volatility", "MAD", "IQR", "95%"]
 FREQ_ORDER = ["1mo", "3mo", "6mo", "1y"]
 RISK_ORDER = ["5.00%", "10.00%", "15.00%", "20.00%"]
-TC_ORDER = ["0% Transaction Cost", "1% Transaction Cost", "2% Transaction Cost"]
+TC_ORDER = ["0 bps Transaction Cost", "1 bps Transaction Cost", "2 bps Transaction Cost"]
 
 # Strategy display names and colors
 STRATEGY_LABELS = {

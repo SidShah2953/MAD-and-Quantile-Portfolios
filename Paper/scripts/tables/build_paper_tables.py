@@ -10,7 +10,7 @@ import pandas as pd
 
 @dataclass(frozen=True)
 class Config:
-    tc_label: str  # e.g. "0% Transaction Cost"
+    tc_label: str  # e.g. "0 bps Transaction Cost"
     risk_label: str  # e.g. "10.00%"
     freq_label: str  # e.g. "6mo"
 
@@ -18,7 +18,7 @@ class Config:
 STRATEGY_ORDER = ["S&P BnH", "Volatility", "MAD", "IQR", "95%"]
 FREQ_ORDER = ["1mo", "3mo", "6mo", "1y"]
 RISK_ORDER = ["5.00%", "10.00%", "15.00%", "20.00%"]
-TC_ORDER = ["0% Transaction Cost", "1% Transaction Cost", "2% Transaction Cost"]
+TC_ORDER = ["0 bps Transaction Cost", "1 bps Transaction Cost", "2 bps Transaction Cost"]
 
 
 FREQ_TRADING_DAYS = {
@@ -239,7 +239,7 @@ def build_tables(project_root: Path) -> None:
         raise RuntimeError(f"No configs found under {output_root}")
 
     # --- Main Table: best risk per frequency (0% cost) ---
-    tc0 = "0% Transaction Cost"
+    tc0 = "0 bps Transaction Cost"
     best_rows = []
     for freq in FREQ_ORDER:
         # choose risk that maximizes terminal PV for each strategy independently
@@ -301,7 +301,7 @@ def build_tables(project_root: Path) -> None:
     tab = '\n'.join(result_lines)
     write_table(
         tables_root / "summary_zero_cost.tex",
-        "Performance summary at 0\\% transaction costs. For each strategy and rebalancing frequency, results are shown at the risk budget that maximizes terminal portfolio value. MDD values are negative; turnover is one-way turnover per rebalance.",
+        "Performance summary at 0 bps transaction costs. For each strategy and rebalancing frequency, results are shown at the risk budget that maximizes terminal portfolio value. MDD values are negative; turnover is the rebalance-to-rebalance sum of absolute weight changes.",
         "tab:summary-zero-cost",
         tab,
     )
@@ -310,9 +310,9 @@ def build_tables(project_root: Path) -> None:
     fixed_risk = "10.00%"
     tc_rows = []
     for freq in FREQ_ORDER:
-        net0 = terminal_net_pv(output_root, Config("0% Transaction Cost", fixed_risk, freq))
-        net1 = terminal_net_pv(output_root, Config("1% Transaction Cost", fixed_risk, freq))
-        net2 = terminal_net_pv(output_root, Config("2% Transaction Cost", fixed_risk, freq))
+        net0 = terminal_net_pv(output_root, Config("0 bps Transaction Cost", fixed_risk, freq))
+        net1 = terminal_net_pv(output_root, Config("1 bps Transaction Cost", fixed_risk, freq))
+        net2 = terminal_net_pv(output_root, Config("2 bps Transaction Cost", fixed_risk, freq))
         for strat in STRATEGY_ORDER:
             if strat not in net0.index:
                 continue
@@ -364,7 +364,7 @@ def build_tables(project_root: Path) -> None:
     tc_tab = '\n'.join(tc_result_lines)
     write_table(
         tables_root / "tc_summary_10pct_risk.tex",
-        "Net terminal portfolio value under proportional transaction costs at 10\\% risk budget. Net PV values are from \\texttt{Transaction Cost.xlsx}. Drag at 2\\% shows the percentage change in terminal value relative to 0\\% costs.",
+        "Net terminal portfolio value under proportional transaction costs at 10\\% risk budget. Net PV values are from \\texttt{Transaction Cost.xlsx}. Drag at 2 bps shows the percentage change in terminal value relative to 0 bps costs.",
         "tab:tc-summary",
         tc_tab,
     )
@@ -434,28 +434,28 @@ def build_tables(project_root: Path) -> None:
         write_table(tables_root / filename, caption, label, tab)
 
     grid_table(
-        "0% Transaction Cost",
+        "0 bps Transaction Cost",
         "PV",
         "appendix_terminal_pv_zero_cost.tex",
-        "Terminal portfolio value (0\\% transaction costs) for all risk budgets and rebalancing schedules.",
+        "Terminal portfolio value (0 bps transaction costs) for all risk budgets and rebalancing schedules.",
         "tab:app-terminal-pv-0",
     )
 
     grid_table_reduced(
-        "0% Transaction Cost",
+        "0 bps Transaction Cost",
         "MDD",
         "appendix_mdd_zero_cost.tex",
-        "Worst within-period maximum drawdown (percent) over time for all risk budgets and rebalancing schedules at 0\\% transaction costs.",
+        "Worst within-period maximum drawdown (percent) over time for all risk budgets and rebalancing schedules at 0 bps transaction costs.",
         "tab:app-mdd-0",
         reducer="min",
         decimals=2,
     )
 
     grid_table_reduced(
-        "0% Transaction Cost",
+        "0 bps Transaction Cost",
         "Sharpe",
         "appendix_sharpe_zero_cost.tex",
-        "Mean Sharpe ratio over time for all risk budgets and rebalancing schedules at 0\\% transaction costs.",
+        "Mean Sharpe ratio over time for all risk budgets and rebalancing schedules at 0 bps transaction costs.",
         "tab:app-sharpe-0",
         reducer="mean",
         decimals=3,
@@ -463,46 +463,46 @@ def build_tables(project_root: Path) -> None:
 
     # Additional appendix grids (0% transaction cost): mean realized metrics over time
     grid_table_reduced(
-        "0% Transaction Cost",
+        "0 bps Transaction Cost",
         "Volatility",
         "appendix_volatility_zero_cost.tex",
-        "Mean realized annualized volatility (percent) over time for all risk budgets and rebalancing schedules at 0\\% transaction costs.",
+        "Mean realized annualized volatility (percent) over time for all risk budgets and rebalancing schedules at 0 bps transaction costs.",
         "tab:app-vol-0",
         reducer="mean",
         decimals=2,
     )
     grid_table_reduced(
-        "0% Transaction Cost",
+        "0 bps Transaction Cost",
         "MAD",
         "appendix_mad_zero_cost.tex",
-        "Mean realized annualized MAD (percent) over time for all risk budgets and rebalancing schedules at 0\\% transaction costs.",
+        "Mean realized annualized MAD (percent) over time for all risk budgets and rebalancing schedules at 0 bps transaction costs.",
         "tab:app-mad-0",
         reducer="mean",
         decimals=2,
     )
     grid_table_reduced(
-        "0% Transaction Cost",
+        "0 bps Transaction Cost",
         "IQR",
         "appendix_iqr_zero_cost.tex",
-        "Mean realized annualized IQR (percent) over time for all risk budgets and rebalancing schedules at 0\\% transaction costs.",
+        "Mean realized annualized IQR (percent) over time for all risk budgets and rebalancing schedules at 0 bps transaction costs.",
         "tab:app-iqr-0",
         reducer="mean",
         decimals=2,
     )
     grid_table_reduced(
-        "0% Transaction Cost",
+        "0 bps Transaction Cost",
         "Sharpe_MAD",
         "appendix_sharpe_mad_zero_cost.tex",
-        "Mean Sharpe$_{\\mathrm{MAD}}$ over time for all risk budgets and rebalancing schedules at 0\\% transaction costs.",
+        "Mean Sharpe$_{\\mathrm{MAD}}$ over time for all risk budgets and rebalancing schedules at 0 bps transaction costs.",
         "tab:app-sharpe-mad-0",
         reducer="mean",
         decimals=3,
     )
     grid_table_reduced(
-        "0% Transaction Cost",
+        "0 bps Transaction Cost",
         "Sharpe_IQR",
         "appendix_sharpe_iqr_zero_cost.tex",
-        "Mean Sharpe$_{\\mathrm{IQR}}$ over time for all risk budgets and rebalancing schedules at 0\\% transaction costs.",
+        "Mean Sharpe$_{\\mathrm{IQR}}$ over time for all risk budgets and rebalancing schedules at 0 bps transaction costs.",
         "tab:app-sharpe-iqr-0",
         reducer="mean",
         decimals=3,
@@ -510,28 +510,28 @@ def build_tables(project_root: Path) -> None:
 
     # Additional appendix grids (0% transaction cost): RAR metrics (percent units) reported by the backtest
     grid_table_reduced(
-        "0% Transaction Cost",
+        "0 bps Transaction Cost",
         "RAR_Vol",
         "appendix_rar_vol_zero_cost.tex",
-        "Mean risk-adjusted return (volatility-based, percent) over time for all risk budgets and rebalancing schedules at 0\\% transaction costs.",
+        "Mean risk-adjusted return (volatility-based, percent) over time for all risk budgets and rebalancing schedules at 0 bps transaction costs.",
         "tab:app-rar-vol-0",
         reducer="mean",
         decimals=3,
     )
     grid_table_reduced(
-        "0% Transaction Cost",
+        "0 bps Transaction Cost",
         "RAR_MAD",
         "appendix_rar_mad_zero_cost.tex",
-        "Mean risk-adjusted return (MAD-based, percent) over time for all risk budgets and rebalancing schedules at 0\\% transaction costs.",
+        "Mean risk-adjusted return (MAD-based, percent) over time for all risk budgets and rebalancing schedules at 0 bps transaction costs.",
         "tab:app-rar-mad-0",
         reducer="mean",
         decimals=3,
     )
     grid_table_reduced(
-        "0% Transaction Cost",
+        "0 bps Transaction Cost",
         "RAR_IQR",
         "appendix_rar_iqr_zero_cost.tex",
-        "Mean risk-adjusted return (IQR-based, percent) over time for all risk budgets and rebalancing schedules at 0\\% transaction costs.",
+        "Mean risk-adjusted return (IQR-based, percent) over time for all risk budgets and rebalancing schedules at 0 bps transaction costs.",
         "tab:app-rar-iqr-0",
         reducer="mean",
         decimals=3,
@@ -587,32 +587,63 @@ def build_tables(project_root: Path) -> None:
         write_table(tables_root / filename, caption, label, tab)
 
     turnover_grid(
-        "0% Transaction Cost",
+        "0 bps Transaction Cost",
         "appendix_turnover_zero_cost.tex",
-        "Mean one-way turnover per rebalance for all risk budgets and rebalancing schedules at 0\\% transaction costs.",
+        "Mean rebalance-to-rebalance sum of absolute weight changes for all risk budgets and rebalancing schedules at 0 bps transaction costs.",
         "tab:app-turnover-0",
     )
 
     net_pv_grid(
-        "0% Transaction Cost",
+        "0 bps Transaction Cost",
         "appendix_net_pv_tc0.tex",
-        "Net terminal portfolio value at 0\\% transaction costs for all risk budgets and rebalancing schedules.",
+        "Net terminal portfolio value at 0 bps transaction costs for all risk budgets and rebalancing schedules.",
         "tab:app-netpv-0",
     )
     net_pv_grid(
-        "1% Transaction Cost",
+        "1 bps Transaction Cost",
         "appendix_net_pv_tc1.tex",
-        "Net terminal portfolio value at 1\\% transaction costs for all risk budgets and rebalancing schedules.",
+        "Net terminal portfolio value at 1 bps transaction costs for all risk budgets and rebalancing schedules.",
         "tab:app-netpv-1",
     )
     net_pv_grid(
-        "2% Transaction Cost",
+        "2 bps Transaction Cost",
         "appendix_net_pv_tc2.tex",
-        "Net terminal portfolio value at 2\\% transaction costs for all risk budgets and rebalancing schedules.",
+        "Net terminal portfolio value at 2 bps transaction costs for all risk budgets and rebalancing schedules.",
         "tab:app-netpv-2",
     )
 
     # Note: Inference tables were intentionally removed from the paper build.
+
+    # --- Focused turnover table: risk=15% (0 bps), compare across frequencies ---
+    risk_focus = "15.00%"
+    tc_focus = "0 bps Transaction Cost"
+    rows = []
+    for freq in FREQ_ORDER:
+        cfg = Config(tc_focus, risk_focus, freq)
+        if cfg not in configs:
+            continue
+        turnover = read_turnover(output_root, cfg)
+        row = {"Frequency": freq, "Risk": latex_escape_text(risk_focus)}
+        for strat in STRATEGY_ORDER:
+            if strat in turnover.columns:
+                row[latex_escape_text(strat)] = _reduce_metric_series(turnover[strat], "mean")
+        rows.append(row)
+
+    if rows:
+        tdf = pd.DataFrame(rows)
+        # Keep the row order consistent with paper frequency order.
+        tdf["_freq_sort"] = tdf["Frequency"].map({f: i for i, f in enumerate(FREQ_ORDER)})
+        tdf = tdf.sort_values(["_freq_sort"]).drop(columns=["_freq_sort"])
+        for strat in [latex_escape_text(s) for s in STRATEGY_ORDER]:
+            if strat in tdf.columns:
+                tdf[strat] = tdf[strat].map(lambda x: _format_number(x, 3))
+        tab = tdf.to_latex(index=False, escape=False)
+        write_table(
+            tables_root / "turnover_15pct_zero_cost.tex",
+            "Mean rebalance-to-rebalance sum of absolute weight changes (turnover proxy) at a 15\\% annualized risk budget under 0 bps transaction costs, reported by rebalancing frequency.",
+            "tab:turnover-15pct-zero-cost",
+            tab,
+        )
 
     print(f"Wrote tables to: {tables_root}")
 

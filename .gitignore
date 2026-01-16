@@ -2,6 +2,8 @@ Related Papers/
 *__pycache__
 Output*/
 
+.vscode/
+
 Paper/Latex/*
 *.DS_Store
 # Ignore Python bytecode files

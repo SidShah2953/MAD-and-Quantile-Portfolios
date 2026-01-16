@@ -16,6 +16,7 @@ import generate_motivation_figure
 import generate_pv_figures
 import generate_cost_drag_figure
 import generate_timeline_figure
+import generate_weight_area_figures
 
 
 def run_generator(name: str, generator_func) -> bool:
@@ -60,6 +61,11 @@ def main() -> None:
     results['Cost Drag Figure'] = run_generator(
         'Transaction Cost Drag Figure',
         generate_cost_drag_figure.main
+    )
+
+    results['Weight Area Figures'] = run_generator(
+        'Strategy Weights (Stacked Areas, 15% Risk)',
+        generate_weight_area_figures.main
     )
     
     # Summary

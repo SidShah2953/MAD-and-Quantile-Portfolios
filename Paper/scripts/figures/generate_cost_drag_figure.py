@@ -2,7 +2,7 @@
 Generate transaction-cost drag figure.
 
 Shows how terminal portfolio value changes as transaction cost rate increases
-from 0% to 2%, testing economic validity of frictionless results.
+from 0 to 2 bps, testing robustness of frictionless results.
 
 Output: figures/cost_drag_curves.png
 """
@@ -38,8 +38,8 @@ def collect_terminal_net_pv() -> pd.DataFrame:
     representative_risk = "10.00%"  # Focus on one risk budget for clarity
     
     for tc_label in TC_ORDER:
-        # Extract TC rate for plotting
-        tc_rate = tc_label.split('%')[0]
+        # Extract TC rate in bps for plotting (e.g. "1 bps Transaction Cost" -> 1)
+        tc_rate = tc_label.split()[0]
         
         for freq in FREQ_ORDER:
             try:
@@ -53,7 +53,7 @@ def collect_terminal_net_pv() -> pd.DataFrame:
                         net_pv = float(terminal[(strategy, 'Net Invested')])
                         
                         records.append({
-                            'TC_Rate': int(tc_rate),
+                            'TC_Rate_BPS': int(tc_rate),
                             'Frequency': freq,
                             'Strategy': strategy,
                             'Terminal_Net_PV': net_pv,
@@ -95,20 +95,27 @@ def plot_cost_drag_curves(risk_label: str = "10.00%") -> plt.Figure:
             continue
         
         for strategy in STRATEGY_ORDER:
-            strat_data = freq_data[freq_data['Strategy'] == strategy].sort_values('TC_Rate')
-            
+            strat_data = freq_data[freq_data['Strategy'] == strategy].sort_values('TC_Rate_BPS')
+
             if len(strat_data) == 0:
                 continue
-            
+
             label = STRATEGY_LABELS.get(strategy, strategy)
             color = STRATEGY_COLORS.get(strategy, 'black')
-            
-            ax.plot(strat_data['TC_Rate'], strat_data['Terminal_Net_PV'],
-                   marker='o', label=label, color=color, linewidth=2, 
-                   markersize=6, alpha=0.9)
+
+            ax.plot(
+                strat_data['TC_Rate_BPS'],
+                strat_data['Terminal_Net_PV'],
+                marker='o',
+                label=label,
+                color=color,
+                linewidth=2,
+                markersize=6,
+                alpha=0.9,
+            )
         
         ax.set_title(f'Rebalance: {freq}', fontweight='bold')
-        ax.set_xlabel('Transaction Cost Rate (%)')
+        ax.set_xlabel('Transaction Cost (bps)')
         ax.set_ylabel('Terminal Net Portfolio Value ($)')
         ax.grid(alpha=0.3, linestyle=':')
         ax.set_xticks([0, 1, 2])

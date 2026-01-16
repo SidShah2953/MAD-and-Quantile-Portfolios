@@ -27,7 +27,7 @@ from figure_helpers import (
 )
 
 
-def plot_pv_curves(tc_label: str = "0% Transaction Cost") -> plt.Figure:
+def plot_pv_curves(tc_label: str = "0 bps Transaction Cost") -> plt.Figure:
     """
     Plot portfolio value curves for representative risk budgets.
     
@@ -74,7 +74,7 @@ def plot_pv_curves(tc_label: str = "0% Transaction Cost") -> plt.Figure:
     return fig
 
 
-def plot_terminal_pv_heatmap(tc_label: str = "0% Transaction Cost") -> plt.Figure:
+def plot_terminal_pv_heatmap(tc_label: str = "0 bps Transaction Cost") -> plt.Figure:
     """
     Create heatmap of terminal portfolio values.
     
@@ -157,7 +157,7 @@ def plot_terminal_pv_heatmap(tc_label: str = "0% Transaction Cost") -> plt.Figur
     return fig
 
 
-def plot_mdd_heatmap(tc_label: str = "0% Transaction Cost") -> plt.Figure:
+def plot_mdd_heatmap(tc_label: str = "0 bps Transaction Cost") -> plt.Figure:
     """
     Create heatmap of maximum drawdown values.
     
