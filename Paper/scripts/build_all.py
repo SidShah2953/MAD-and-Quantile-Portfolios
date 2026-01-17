@@ -128,7 +128,7 @@ Examples:
         return 1
     else:
         print("\n✓ All artifacts generated successfully!")
-        print("  Ready to compile LaTeX: cd Paper/LaTeX && bash compile.sh")
+        print("  Ready to compile LaTeX: cd Paper/LaTeX && ./compile.sh")
         return 0
 
 

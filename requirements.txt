@@ -4,3 +4,4 @@ python-dotenv
 scipy
 yfinance
 matplotlib
+alive-progress

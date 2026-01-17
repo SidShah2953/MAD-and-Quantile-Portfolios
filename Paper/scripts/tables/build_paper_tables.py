@@ -17,7 +17,7 @@ class Config:
 
 STRATEGY_ORDER = ["S&P BnH", "Volatility", "MAD", "IQR", "95%"]
 FREQ_ORDER = ["1mo", "3mo", "6mo", "1y"]
-RISK_ORDER = ["5.00%", "10.00%", "15.00%", "20.00%"]
+RISK_ORDER = ["5.00%", "10.00%", "15.00%"]
 TC_ORDER = ["0 bps Transaction Cost", "1 bps Transaction Cost", "2 bps Transaction Cost"]
 
 
@@ -141,7 +141,7 @@ def summarize_config(output_root: Path, cfg: Config) -> pd.DataFrame:
         # These are already annualized in percent units (volatility) and unitless for Sharpe.
         vol_mean = float(vol[strat].replace([math.inf, -math.inf], pd.NA).dropna().mean()) if strat in vol.columns else float("nan")
         sharpe_mean = float(sharpe[strat].replace([math.inf, -math.inf], pd.NA).dropna().mean()) if strat in sharpe.columns else float("nan")
-        turnover_mean = float(turnover[strat].replace([math.inf, -math.inf], pd.NA).dropna().mean()) if strat in turnover.columns else float("nan")
+        turnover_mean = _reduce_metric_series(turnover[strat], "mean_excluding_ends") if strat in turnover.columns else float("nan")
 
         out_rows.append(
             {
@@ -217,6 +217,12 @@ def _reduce_metric_series(values: pd.Series, reducer: str) -> float:
     s = values.replace([math.inf, -math.inf], pd.NA).dropna()
     if len(s) == 0:
         return float("nan")
+    if reducer == "mean_excluding_ends":
+        if len(s) <= 2:
+            return float("nan")
+        s = s.iloc[1:-1]
+        return float(s.mean()) if len(s) else float("nan")
+        turnover_mean = _reduce_metric_series(turnover[strat], "mean_excluding_ends") if strat in turnover.columns else float("nan")
     if reducer == "terminal":
         return float(s.iloc[-1])
     if reducer == "mean":
@@ -571,7 +577,7 @@ def build_tables(project_root: Path) -> None:
                 row = {"Frequency": freq, "Risk": risk}
                 for strat in STRATEGY_ORDER:
                     if strat in turnover.columns:
-                        row[latex_escape_text(strat)] = _reduce_metric_series(turnover[strat], "mean")
+                        row[latex_escape_text(strat)] = _reduce_metric_series(turnover[strat], "mean_excluding_ends")
                 rows.append(row)
 
         g = pd.DataFrame(rows)
@@ -626,7 +632,7 @@ def build_tables(project_root: Path) -> None:
         row = {"Frequency": freq, "Risk": latex_escape_text(risk_focus)}
         for strat in STRATEGY_ORDER:
             if strat in turnover.columns:
-                row[latex_escape_text(strat)] = _reduce_metric_series(turnover[strat], "mean")
+                row[latex_escape_text(strat)] = _reduce_metric_series(turnover[strat], "mean_excluding_ends")
         rows.append(row)
 
     if rows:

@@ -29,6 +29,25 @@ class BasePortfolio(ABC):
         self.data = self.data[['period'] + self.etfs]
         self.data = self.data.set_index('period')
 
+        # Align all backtests to start investing from a common date across rebalance frequencies.
+        # We keep exactly one lookback period before the start date so the first invested period
+        # can compute weights based on the previous period.
+        invest_start_date = pd.to_datetime(os.getenv('INVEST_START_DATE', '2000-01-01'))
+        self.invest_start_date = invest_start_date
+        self.first_invest_period = None
+        self._first_invest_period_dt = None
+        period_index_dt = pd.to_datetime(self.data.index)
+        unique_periods_dt = pd.Index(period_index_dt.unique()).sort_values()
+
+        periods_after_start = unique_periods_dt[unique_periods_dt >= invest_start_date]
+        if len(periods_after_start) > 0:
+            first_invest_period_dt = periods_after_start[0]
+            self.first_invest_period = first_invest_period_dt.strftime('%Y-%m-%d')
+            self._first_invest_period_dt = first_invest_period_dt
+            first_invest_pos = unique_periods_dt.get_loc(first_invest_period_dt)
+            lookback_period_dt = unique_periods_dt[max(first_invest_pos - 1, 0)]
+            self.data = self.data.loc[period_index_dt >= lookback_period_dt]
+
         self.weights = pd.DataFrame(index=self.data.columns)
         self.periods = list(sorted(self.data.index.unique()))
         self.period_length = get_trading_days(freq)
@@ -236,6 +255,49 @@ class BasePortfolio(ABC):
             }).set_index('period'))
 
         self.performance = pd.concat(temp, axis=1)
+
+        # Drop any pre-invest (lookback) rows from the returned performance so comparisons
+        # across rebalance frequencies start on the same invested period.
+        if self._first_invest_period_dt is not None and not self.performance.empty:
+            perf_idx_dt = pd.to_datetime(self.performance.index)
+            self.performance = self.performance.loc[perf_idx_dt >= self._first_invest_period_dt]
+
+        # Add an explicit anchor row (Return=0, PV baseline) without overwriting the
+        # realized return of the first invested period. Overwriting the first period's
+        # return breaks benchmark PV comparability across rebalance frequencies because
+        # the first "period" contains different amounts of realized return depending on
+        # how days are grouped.
+        if not self.performance.empty:
+            anchor_dt = pd.to_datetime(os.getenv('INVEST_START_DATE', '2000-01-01'))
+            # Ensure the anchor sorts before the first invested period.
+            first_period_dt = pd.to_datetime(self.performance.index[0])
+            if anchor_dt > first_period_dt:
+                anchor_dt = first_period_dt
+
+            anchor_label = anchor_dt.strftime('%Y-%m-%d')
+            if anchor_label in self.performance.index:
+                anchor_label = (anchor_dt - pd.Timedelta(days=1)).strftime('%Y-%m-%d')
+
+            anchor_row = {
+                'Return': 0.0,
+                'Volatility': 0.0,
+                'MAD': 0.0,
+                'IQR': 0.0,
+                'Sharpe': np.nan,
+                'Sharpe_MAD': np.nan,
+                'Sharpe_IQR': np.nan,
+                'RAR_Vol': np.nan,
+                'RAR_MAD': np.nan,
+                'RAR_IQR': np.nan,
+                'MDD': np.nan,
+            }
+            for col in self.performance.columns:
+                anchor_row.setdefault(col, np.nan)
+            self.performance = pd.concat(
+                [pd.DataFrame([anchor_row], index=[anchor_label]), self.performance],
+                axis=0
+            ).sort_index()
+
         self.performance['PV'] = np.cumprod(self.performance['Return'] + 1) * 100
 
         return self.performance

@@ -42,7 +42,16 @@ MAX_ALLOC=0.4
 # Date range
 START_YEAR=2010
 END_YEAR=2023
+
+# Backtest alignment (recommended)
+# All portfolios will begin investing on the first trading day on/after this date,
+# regardless of rebalance frequency.
+INVEST_START_DATE=2000-01-01
 ```
+
+Notes:
+- `START_YEAR` / `END_YEAR` control how much raw data is downloaded and included in `Data/combined.csv`.
+- `INVEST_START_DATE` controls when the backtest *actually starts investing* (a small pre-start lookback window is still used to compute the first set of weights).
 
 ## Project Structure
 

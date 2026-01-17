@@ -34,8 +34,8 @@ class Config:
 
 STRATEGY_ORDER = ["S&P BnH", "Volatility", "MAD", "IQR", "95%"]
 FREQ_ORDER = ["1mo", "3mo", "6mo", "1y"]
-RISK_ORDER = ["5.00%", "10.00%", "15.00%", "20.00%"]
-TC_ORDER = ["0% Transaction Cost", "1% Transaction Cost", "2% Transaction Cost"]
+RISK_ORDER = ["5.00%", "10.00%", "15.00%"]
+TC_ORDER = ["0 bps Transaction Cost", "1 bps Transaction Cost", "2 bps Transaction Cost"]
 
 
 def _project_root() -> Path:
@@ -213,7 +213,7 @@ def audit_summary_zero_cost(project_root: Path) -> list[str]:
 
     # Build expected values: recompute same "best risk by terminal PV" logic
     expected = {}
-    tc0 = "0% Transaction Cost"
+    tc0 = "0 bps Transaction Cost"
     for freq in FREQ_ORDER:
         for strat in STRATEGY_ORDER:
             best = None
@@ -302,7 +302,7 @@ def audit_tc_summary_10pct(project_root: Path) -> list[str]:
         got_pv1 = _as_float(r[3])
         got_pv2 = _as_float(r[4])
 
-        for tc_label, got in [("0% Transaction Cost", got_pv0), ("1% Transaction Cost", got_pv1), ("2% Transaction Cost", got_pv2)]:
+        for tc_label, got in [("0 bps Transaction Cost", got_pv0), ("1 bps Transaction Cost", got_pv1), ("2 bps Transaction Cost", got_pv2)]:
             cfg = Config(tc_label, "10.00%", freq)
             if cfg not in configs:
                 msgs.append(f"WARN: missing Output config {tc_label}/{cfg.risk_label}/{freq}")
