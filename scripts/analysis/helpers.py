@@ -6,7 +6,11 @@ load_dotenv()
 
 def get_report(portfolio, parameters):
     po = portfolio(freq=parameters['freq'], max_alloc=parameters['max_alloc'])
-    stats_df = po.calculate_performance(parameters['max_risk'])
+    stats_raw = po.calculate_performance(parameters['max_risk'])
+
+    # Format a copy for export (percent units + rounding), but keep raw decimals
+    # for any downstream calculations (e.g., transaction-cost compounding).
+    stats_df = stats_raw.copy()
 
     for col in stats_df.columns:
         if col in ['Sharpe', 'Sharpe_MAD', 'Sharpe_IQR', 'RAR_Vol', 'RAR_MAD', 'RAR_IQR']:
@@ -31,4 +35,4 @@ def get_report(portfolio, parameters):
     weights_df.loc[f"{int(os.getenv('END_YEAR')) + 1}-01-01"] = len(weights_df.columns) * [0]
     weights_df = weights_df.sort_index()
 
-    return weights_df, stats_df
+    return weights_df, stats_df, stats_raw

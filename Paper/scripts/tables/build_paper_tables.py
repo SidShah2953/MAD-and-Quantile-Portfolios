@@ -121,7 +121,9 @@ def summarize_config(output_root: Path, cfg: Config) -> pd.DataFrame:
     pv = read_metric(output_root, cfg, "PV")
     mdd = read_metric(output_root, cfg, "MDD")
     vol = read_metric(output_root, cfg, "Volatility")
-    sharpe = read_metric(output_root, cfg, "Sharpe")
+    # Sharpe.xlsx is a per-period diagnostic that depends on period construction.
+    # For the paper summary table we instead report a mechanically reproducible annual Sharpe:
+    # Sharpe = CAGR / AnnVol (rf=0), using the displayed CAGR and AnnVol.
     turnover = read_turnover(output_root, cfg)
 
     idx = _parse_period_index(pv.index)
@@ -135,12 +137,16 @@ def summarize_config(output_root: Path, cfg: Config) -> pd.DataFrame:
         pv_end = float(pv[strat].dropna().iloc[-1])
         cagr = _cagr(pv_start, pv_end, years)
 
-        # MDD is stored as negative percent values; report the worst drawdown magnitude as a positive percent.
-        mdd_worst = float(mdd[strat].min()) if strat in mdd.columns else float("nan")
+        # MDD is stored as negative percent values; report magnitude (positive percent).
+        mdd_raw = float(mdd[strat].min()) if strat in mdd.columns else float("nan")
+        mdd_mag = (-mdd_raw) if (not pd.isna(mdd_raw) and mdd_raw <= 0) else mdd_raw
 
         # These are already annualized in percent units (volatility) and unitless for Sharpe.
         vol_mean = float(vol[strat].replace([math.inf, -math.inf], pd.NA).dropna().mean()) if strat in vol.columns else float("nan")
-        sharpe_mean = float(sharpe[strat].replace([math.inf, -math.inf], pd.NA).dropna().mean()) if strat in sharpe.columns else float("nan")
+        sharpe_annual = float("nan")
+        if not pd.isna(cagr) and not pd.isna(vol_mean) and vol_mean != 0:
+            # vol_mean is in percent points (e.g., 15.92 for 15.92%), so convert to decimal.
+            sharpe_annual = float(cagr / (vol_mean / 100.0))
         turnover_mean = _reduce_metric_series(turnover[strat], "mean_excluding_ends") if strat in turnover.columns else float("nan")
 
         out_rows.append(
@@ -148,9 +154,9 @@ def summarize_config(output_root: Path, cfg: Config) -> pd.DataFrame:
                 "Strategy": strat,
                 "Terminal PV": pv_end,
                 "CAGR": cagr,
-                "MDD": mdd_worst,
+                "MDD": mdd_mag,
                 "AnnVol": vol_mean,
-                "Sharpe": sharpe_mean,
+                "Sharpe": sharpe_annual,
                 "Turnover": turnover_mean,
             }
         )
@@ -213,6 +219,70 @@ def write_table(path: Path, caption: str, label: str, tabular_latex: str) -> Non
     path.write_text(content)
 
 
+def read_weights(output_root: Path, cfg: Config, strategy: str) -> pd.DataFrame:
+    path = output_root / cfg.tc_label / cfg.risk_label / cfg.freq_label / "Weights" / f"{strategy}.xlsx"
+    df = pd.read_excel(path, index_col=0)
+    # Drop any all-NaN rows (e.g., placeholder first period rows).
+    return df.dropna(how="all")
+
+
+def write_weights_longtable(path: Path, weights: pd.DataFrame, caption: str, label: str) -> None:
+    """Write a LaTeX longtable of portfolio weights.
+
+    Designed for multi-page tables (e.g., monthly frequency).
+    """
+    df = weights.copy()
+    df.index = df.index.astype(str)
+
+    df = df.astype(float)
+    # The pipeline exports weights to Excel already in percent units (0–100).
+    # For robustness, detect fractional weights (0–1) and convert to percent.
+    max_abs = float(df.abs().max().max()) if df.size else 0.0
+    if max_abs <= 1.5:
+        df = df * 100.0
+
+    # Format weights as percents for readability.
+    df = df.round(2)
+
+    col_names = [latex_escape_text(str(c)) for c in df.columns]
+    n_cols = 1 + len(col_names)  # period + assets
+    col_spec = "l" + ("r" * len(col_names))
+
+    header = "Period & " + " & ".join(col_names) + " \\\\"  # noqa: W605
+    rows = []
+    for period, row in df.iterrows():
+        values = [f"{v:.2f}" if not pd.isna(v) else "---" for v in row.values]
+        rows.append(latex_escape_text(str(period)) + " & " + " & ".join(values) + " \\\\ ")
+
+    content = "\n".join(
+        [
+            "\\begin{center}",
+            "\\scriptsize",
+            "\\setlength{\\tabcolsep}{3pt}",
+            f"\\begin{{longtable}}{{{col_spec}}}",
+            f"\\caption{{{caption}}}\\label{{{label}}}\\\\",
+            "\\toprule",
+            header,
+            "\\midrule",
+            "\\endfirsthead",
+            f"\\multicolumn{{{n_cols}}}{{c}}{{\\tablename\\ \\thetable\\ -- continued from previous page}}\\\\",
+            "\\toprule",
+            header,
+            "\\midrule",
+            "\\endhead",
+            f"\\midrule \\multicolumn{{{n_cols}}}{{r}}{{Continued on next page}}\\\\",
+            "\\endfoot",
+            "\\bottomrule",
+            "\\endlastfoot",
+            *rows,
+            "\\end{longtable}",
+            "\\end{center}",
+            "",
+        ]
+    )
+    path.write_text(content)
+
+
 def _reduce_metric_series(values: pd.Series, reducer: str) -> float:
     s = values.replace([math.inf, -math.inf], pd.NA).dropna()
     if len(s) == 0:
@@ -244,70 +314,112 @@ def build_tables(project_root: Path) -> None:
     if not configs:
         raise RuntimeError(f"No configs found under {output_root}")
 
-    # --- Main Table: best risk per frequency (0% cost) ---
+    # --- Main Table (Table 1): full grid at 0% cost (all risks × all frequencies × all strategies) ---
+    # Requirement: sort by risk first, then frequency, then strategy name.
+    # Benchmark (S&P BnH) is shown once as the first row and not repeated.
     tc0 = "0 bps Transaction Cost"
-    best_rows = []
-    for freq in FREQ_ORDER:
-        # choose risk that maximizes terminal PV for each strategy independently
-        for strat in STRATEGY_ORDER:
-            best = None
-            for risk in RISK_ORDER:
-                cfg = Config(tc0, risk, freq)
-                if cfg not in configs:
+    rows: list[dict] = []
+
+    for risk in RISK_ORDER:
+        for freq in FREQ_ORDER:
+            cfg = Config(tc0, risk, freq)
+            if cfg not in configs:
+                continue
+            summ = summarize_config(output_root, cfg)
+            for strat in STRATEGY_ORDER:
+                if strat == "S&P BnH":
                     continue
-                summ = summarize_config(output_root, cfg)
                 if strat not in summ.index:
                     continue
-                pv_end = float(summ.loc[strat, "Terminal PV"])
-                if best is None or pv_end > best["Terminal PV"]:
-                    best = {
+                rows.append(
+                    {
+                        "Risk": risk,
                         "Frequency": freq,
                         "Strategy": strat,
-                        "Best Risk": risk,
                         **summ.loc[strat].to_dict(),
                     }
-            if best is not None:
-                best_rows.append(best)
+                )
 
-    best_df = pd.DataFrame(best_rows)
+    grid_df = pd.DataFrame(rows)
+
+    # Pick a single benchmark row for S&P BnH (independent of risk).
+    bnh_row = None
+    bnh_best_years = -1.0
+    for cfg in configs:
+        if cfg.tc_label != tc0:
+            continue
+        try:
+            pv = read_metric(output_root, cfg, "PV")
+        except Exception:
+            continue
+        if "S&P BnH" not in pv.columns:
+            continue
+        idx = _parse_period_index(pv.index)
+        years = _years_between(idx.min(), idx.max())
+        if years > bnh_best_years:
+            bnh_best_years = years
+            bnh_row = summarize_config(output_root, cfg).loc["S&P BnH"].to_dict()
+
+    # Sorting keys
+    risk_rank = {r: i for i, r in enumerate(RISK_ORDER)}
+    freq_rank = {f: i for i, f in enumerate(FREQ_ORDER)}
+
+    if not grid_df.empty:
+        grid_df["_risk_sort"] = grid_df["Risk"].map(risk_rank).fillna(999)
+        grid_df["_freq_sort"] = grid_df["Frequency"].map(freq_rank).fillna(999)
+        grid_df["_strat_sort"] = grid_df["Strategy"].astype(str)
+        grid_df = grid_df.sort_values(["_risk_sort", "_freq_sort", "_strat_sort"]).drop(
+            columns=["_risk_sort", "_freq_sort", "_strat_sort"]
+        )
+
+    # Prepend benchmark row once
+    if bnh_row is not None:
+        bnh_df = pd.DataFrame(
+            [
+                {
+                    "Risk": "All",
+                    "Frequency": "All",
+                    "Strategy": "S&P BnH",
+                    **bnh_row,
+                }
+            ]
+        )
+        grid_df = pd.concat([bnh_df, grid_df], ignore_index=True)
 
     # Format for LaTeX
-    best_df["Strategy"] = best_df["Strategy"].map(latex_escape_text)
-    best_df["Best Risk"] = best_df["Best Risk"].map(latex_escape_text)
-    best_df["CAGR"] = best_df["CAGR"].map(lambda x: _format_percent(x, 2))
-    best_df["Terminal PV"] = best_df["Terminal PV"].map(lambda x: _format_number(x, 2))
-    best_df["MDD"] = best_df["MDD"].map(lambda x: _format_number(x, 2))
-    best_df["AnnVol"] = best_df["AnnVol"].map(lambda x: _format_number(x, 2))
-    best_df["Sharpe"] = best_df["Sharpe"].map(lambda x: _format_number(x, 3))
-    best_df["Turnover"] = best_df["Turnover"].map(lambda x: _format_number(x, 3))
+    grid_df["Risk"] = grid_df["Risk"].map(latex_escape_text)
+    grid_df["Frequency"] = grid_df["Frequency"].map(latex_escape_text)
+    grid_df["Strategy"] = grid_df["Strategy"].map(latex_escape_text)
+    grid_df["CAGR"] = grid_df["CAGR"].map(lambda x: _format_percent(x, 2))
+    grid_df["Terminal PV"] = grid_df["Terminal PV"].map(lambda x: _format_number(x, 2))
+    grid_df["MDD"] = grid_df["MDD"].map(lambda x: _format_number(x, 2))
+    grid_df["AnnVol"] = grid_df["AnnVol"].map(lambda x: _format_number(x, 2))
+    grid_df["Sharpe"] = grid_df["Sharpe"].map(lambda x: _format_number(x, 3))
+    grid_df["Turnover"] = grid_df["Turnover"].map(lambda x: _format_number(x, 3))
 
-    best_df = best_df[["Frequency", "Strategy", "Best Risk", "Terminal PV", "CAGR", "MDD", "AnnVol", "Sharpe", "Turnover"]]
-    
-    # Sort by Best Risk then Frequency
-    best_df['_risk_sort'] = best_df['Best Risk'].map({latex_escape_text(r): i for i, r in enumerate(RISK_ORDER)})
-    best_df['_freq_sort'] = best_df['Frequency'].map({f: i for i, f in enumerate(FREQ_ORDER)})
-    best_df = best_df.sort_values(['_risk_sort', '_freq_sort']).drop(columns=['_risk_sort', '_freq_sort'])
+    grid_df = grid_df[["Risk", "Frequency", "Strategy", "Terminal PV", "CAGR", "MDD", "AnnVol", "Sharpe", "Turnover"]]
 
-    tab = best_df.to_latex(index=False, escape=False, longtable=False)
-    
-    # Add midrules between risk groups only
+    tab = grid_df.to_latex(index=False, escape=False, longtable=False)
+
+    # Add midrules between risk groups (benchmark row will naturally separate from first risk group).
     tab_lines = tab.split('\n')
     result_lines = []
     prev_risk = None
     for line in tab_lines:
         if '&' in line and '\\\\' in line:
-            # Extract risk value from the line (3rd column)
+            # Extract risk value from the line (1st column)
             parts = line.split('&')
-            if len(parts) >= 3:
-                current_risk = parts[2].strip()
+            if len(parts) >= 1:
+                current_risk = parts[0].strip()
                 if prev_risk is not None and current_risk != prev_risk:
                     result_lines.append('\\midrule')
                 prev_risk = current_risk
         result_lines.append(line)
     tab = '\n'.join(result_lines)
+
     write_table(
         tables_root / "summary_zero_cost.tex",
-        "Performance summary at 0 bps transaction costs. For each strategy and rebalancing frequency, results are shown at the risk budget that maximizes terminal portfolio value. MDD values are negative; turnover is the rebalance-to-rebalance sum of absolute weight changes.",
+        "Performance summary at 0 bps transaction costs across all risk budgets and rebalancing frequencies. Rows are sorted by risk, then frequency, then strategy. S\&P BnH is shown once as a benchmark. MDD values are reported as positive magnitudes (larger values indicate larger drawdowns). Sharpe is computed as CAGR/AnnVol (with AnnVol converted from percent to decimal and $r_f=0$). Turnover is the mean rebalance-to-rebalance sum of absolute \emph{non-cash} weight changes (cash sleeve excluded), matching the transaction-cost model.",
         "tab:summary-zero-cost",
         tab,
     )
@@ -330,22 +442,15 @@ def build_tables(project_root: Path) -> None:
                 {
                     "Frequency": freq,
                     "Strategy": latex_escape_text(strat),
-                    "Net PV (0%)": _format_number(pv0, 2),
-                    "Net PV (1%)": _format_number(pv1, 2),
-                    "Net PV (2%)": _format_number(pv2, 2),
-                    "Drag at 2%": _format_percent(drag2, 2),
+                    "Net PV (0 bps)": _format_number(pv0, 2),
+                    "Net PV (1 bps)": _format_number(pv1, 2),
+                    "Net PV (2 bps)": _format_number(pv2, 2),
+                    "Drag at 2 bps": _format_percent(drag2, 2),
                 }
             )
 
     tc_df = pd.DataFrame(tc_rows)
-    tc_df = tc_df.rename(
-        columns={
-            "Net PV (0%)": "Net PV (0\\%)",
-            "Net PV (1%)": "Net PV (1\\%)",
-            "Net PV (2%)": "Net PV (2\\%)",
-            "Drag at 2%": "Drag at 2\\%",
-        }
-    )
+    # No LaTeX escaping needed here (no % signs now).
     
     # Sort by frequency
     tc_df['_freq_sort'] = tc_df['Frequency'].map({f: i for i, f in enumerate(FREQ_ORDER)})
@@ -370,288 +475,67 @@ def build_tables(project_root: Path) -> None:
     tc_tab = '\n'.join(tc_result_lines)
     write_table(
         tables_root / "tc_summary_10pct_risk.tex",
-        "Net terminal portfolio value under proportional transaction costs at 10\\% risk budget. Net PV values are from \\texttt{Transaction Cost.xlsx}. Drag at 2 bps shows the percentage change in terminal value relative to 0 bps costs.",
+        "Net terminal portfolio value under proportional transaction costs at 10\\% risk budget. Costs are charged per trade on \emph{non-cash} assets (cash sleeve excluded). Net PV values are computed from the pipeline-generated backtest outputs (\\texttt{Output/.../Transaction Cost.xlsx}). Drag at 2 bps shows the percentage change in terminal value relative to 0 bps costs.",
         "tab:tc-summary",
         tc_tab,
     )
 
-    # --- Appendix: terminal PV grids for each transaction-cost scenario (fixed: gross PV from Metrics/PV.xlsx) ---
-    def grid_table(tc_label: str, metric: str, filename: str, caption: str, label: str) -> None:
-        rows = []
-        for freq in FREQ_ORDER:
-            for risk in RISK_ORDER:
-                cfg = Config(tc_label, risk, freq)
-                if cfg not in configs:
-                    continue
-                df = read_metric(output_root, cfg, metric)
-                # terminal value: last row
-                terminal = df.dropna().tail(1).iloc[0]
-                row = {"Frequency": freq, "Risk": risk}
-                for strat in STRATEGY_ORDER:
-                    if strat in terminal.index:
-                        row[latex_escape_text(strat)] = float(terminal[strat])
-                rows.append(row)
-        g = pd.DataFrame(rows)
-        g = g.sort_values(["Frequency", "Risk"], key=lambda s: s.map({v: i for i, v in enumerate(FREQ_ORDER + RISK_ORDER)}).fillna(999))
+    # Appendix tables were intentionally removed from the paper build to keep the paper streamlined.
 
-        # format
-        g["Risk"] = g["Risk"].map(latex_escape_text)
-        for strat in [latex_escape_text(s) for s in STRATEGY_ORDER]:
-            if strat in g.columns:
-                g[strat] = g[strat].map(lambda x: _format_number(x, 2))
-
-        tab = g.to_latex(index=False, escape=False)
-        write_table(tables_root / filename, caption, label, tab)
-
-    def grid_table_reduced(
-        tc_label: str,
-        metric: str,
-        filename: str,
-        caption: str,
-        label: str,
-        *,
-        reducer: str,
-        decimals: int,
-    ) -> None:
-        rows = []
-        for freq in FREQ_ORDER:
-            for risk in RISK_ORDER:
-                cfg = Config(tc_label, risk, freq)
-                if cfg not in configs:
-                    continue
-                df = read_metric(output_root, cfg, metric)
-                row = {"Frequency": freq, "Risk": risk}
-                for strat in STRATEGY_ORDER:
-                    if strat in df.columns:
-                        row[latex_escape_text(strat)] = _reduce_metric_series(df[strat], reducer)
-                rows.append(row)
-
-        g = pd.DataFrame(rows)
-        if len(g) == 0:
-            return
-
-        g = g.sort_values(["Frequency", "Risk"], key=lambda s: s.map({v: i for i, v in enumerate(FREQ_ORDER + RISK_ORDER)}).fillna(999))
-        g["Risk"] = g["Risk"].map(latex_escape_text)
-        for strat in [latex_escape_text(s) for s in STRATEGY_ORDER]:
-            if strat in g.columns:
-                g[strat] = g[strat].map(lambda x: _format_number(x, decimals))
-
-        tab = g.to_latex(index=False, escape=False)
-        write_table(tables_root / filename, caption, label, tab)
-
-    grid_table(
-        "0 bps Transaction Cost",
-        "PV",
-        "appendix_terminal_pv_zero_cost.tex",
-        "Terminal portfolio value (0 bps transaction costs) for all risk budgets and rebalancing schedules.",
-        "tab:app-terminal-pv-0",
-    )
-
-    grid_table_reduced(
-        "0 bps Transaction Cost",
-        "MDD",
-        "appendix_mdd_zero_cost.tex",
-        "Worst within-period maximum drawdown (percent) over time for all risk budgets and rebalancing schedules at 0 bps transaction costs.",
-        "tab:app-mdd-0",
-        reducer="min",
-        decimals=2,
-    )
-
-    grid_table_reduced(
-        "0 bps Transaction Cost",
-        "Sharpe",
-        "appendix_sharpe_zero_cost.tex",
-        "Mean Sharpe ratio over time for all risk budgets and rebalancing schedules at 0 bps transaction costs.",
-        "tab:app-sharpe-0",
-        reducer="mean",
-        decimals=3,
-    )
-
-    # Additional appendix grids (0% transaction cost): mean realized metrics over time
-    grid_table_reduced(
-        "0 bps Transaction Cost",
-        "Volatility",
-        "appendix_volatility_zero_cost.tex",
-        "Mean realized annualized volatility (percent) over time for all risk budgets and rebalancing schedules at 0 bps transaction costs.",
-        "tab:app-vol-0",
-        reducer="mean",
-        decimals=2,
-    )
-    grid_table_reduced(
-        "0 bps Transaction Cost",
-        "MAD",
-        "appendix_mad_zero_cost.tex",
-        "Mean realized annualized MAD (percent) over time for all risk budgets and rebalancing schedules at 0 bps transaction costs.",
-        "tab:app-mad-0",
-        reducer="mean",
-        decimals=2,
-    )
-    grid_table_reduced(
-        "0 bps Transaction Cost",
-        "IQR",
-        "appendix_iqr_zero_cost.tex",
-        "Mean realized annualized IQR (percent) over time for all risk budgets and rebalancing schedules at 0 bps transaction costs.",
-        "tab:app-iqr-0",
-        reducer="mean",
-        decimals=2,
-    )
-    grid_table_reduced(
-        "0 bps Transaction Cost",
-        "Sharpe_MAD",
-        "appendix_sharpe_mad_zero_cost.tex",
-        "Mean Sharpe$_{\\mathrm{MAD}}$ over time for all risk budgets and rebalancing schedules at 0 bps transaction costs.",
-        "tab:app-sharpe-mad-0",
-        reducer="mean",
-        decimals=3,
-    )
-    grid_table_reduced(
-        "0 bps Transaction Cost",
-        "Sharpe_IQR",
-        "appendix_sharpe_iqr_zero_cost.tex",
-        "Mean Sharpe$_{\\mathrm{IQR}}$ over time for all risk budgets and rebalancing schedules at 0 bps transaction costs.",
-        "tab:app-sharpe-iqr-0",
-        reducer="mean",
-        decimals=3,
-    )
-
-    # Additional appendix grids (0% transaction cost): RAR metrics (percent units) reported by the backtest
-    grid_table_reduced(
-        "0 bps Transaction Cost",
-        "RAR_Vol",
-        "appendix_rar_vol_zero_cost.tex",
-        "Mean risk-adjusted return (volatility-based, percent) over time for all risk budgets and rebalancing schedules at 0 bps transaction costs.",
-        "tab:app-rar-vol-0",
-        reducer="mean",
-        decimals=3,
-    )
-    grid_table_reduced(
-        "0 bps Transaction Cost",
-        "RAR_MAD",
-        "appendix_rar_mad_zero_cost.tex",
-        "Mean risk-adjusted return (MAD-based, percent) over time for all risk budgets and rebalancing schedules at 0 bps transaction costs.",
-        "tab:app-rar-mad-0",
-        reducer="mean",
-        decimals=3,
-    )
-    grid_table_reduced(
-        "0 bps Transaction Cost",
-        "RAR_IQR",
-        "appendix_rar_iqr_zero_cost.tex",
-        "Mean risk-adjusted return (IQR-based, percent) over time for all risk budgets and rebalancing schedules at 0 bps transaction costs.",
-        "tab:app-rar-iqr-0",
-        reducer="mean",
-        decimals=3,
-    )
-
-    # Appendix: net terminal PV by transaction cost (from Transaction Cost.xlsx)
-    def net_pv_grid(tc_label: str, filename: str, caption: str, label: str) -> None:
-        rows = []
-        for freq in FREQ_ORDER:
-            for risk in RISK_ORDER:
-                cfg = Config(tc_label, risk, freq)
-                if cfg not in configs:
-                    continue
-                net = terminal_net_pv(output_root, cfg)
-                row = {"Frequency": freq, "Risk": risk}
-                for strat in STRATEGY_ORDER:
-                    if strat in net.index:
-                        row[latex_escape_text(strat)] = float(net[strat])
-                rows.append(row)
-        g = pd.DataFrame(rows)
-        g["Risk"] = g["Risk"].map(latex_escape_text)
-        for strat in [latex_escape_text(s) for s in STRATEGY_ORDER]:
-            if strat in g.columns:
-                g[strat] = g[strat].map(lambda x: _format_number(x, 2))
-        tab = g.to_latex(index=False, escape=False)
-        write_table(tables_root / filename, caption, label, tab)
-
-    # Appendix: mean turnover grid (from Weights/Comparison.xlsx)
-    def turnover_grid(tc_label: str, filename: str, caption: str, label: str) -> None:
-        rows = []
-        for freq in FREQ_ORDER:
-            for risk in RISK_ORDER:
-                cfg = Config(tc_label, risk, freq)
-                if cfg not in configs:
-                    continue
-                turnover = read_turnover(output_root, cfg)
-                row = {"Frequency": freq, "Risk": risk}
-                for strat in STRATEGY_ORDER:
-                    if strat in turnover.columns:
-                        row[latex_escape_text(strat)] = _reduce_metric_series(turnover[strat], "mean_excluding_ends")
-                rows.append(row)
-
-        g = pd.DataFrame(rows)
-        if len(g) == 0:
-            return
-
-        g = g.sort_values(["Frequency", "Risk"], key=lambda s: s.map({v: i for i, v in enumerate(FREQ_ORDER + RISK_ORDER)}).fillna(999))
-        g["Risk"] = g["Risk"].map(latex_escape_text)
-        for strat in [latex_escape_text(s) for s in STRATEGY_ORDER]:
-            if strat in g.columns:
-                g[strat] = g[strat].map(lambda x: _format_number(x, 3))
-        tab = g.to_latex(index=False, escape=False)
-        write_table(tables_root / filename, caption, label, tab)
-
-    turnover_grid(
-        "0 bps Transaction Cost",
-        "appendix_turnover_zero_cost.tex",
-        "Mean rebalance-to-rebalance sum of absolute weight changes for all risk budgets and rebalancing schedules at 0 bps transaction costs.",
-        "tab:app-turnover-0",
-    )
-
-    net_pv_grid(
-        "0 bps Transaction Cost",
-        "appendix_net_pv_tc0.tex",
-        "Net terminal portfolio value at 0 bps transaction costs for all risk budgets and rebalancing schedules.",
-        "tab:app-netpv-0",
-    )
-    net_pv_grid(
-        "1 bps Transaction Cost",
-        "appendix_net_pv_tc1.tex",
-        "Net terminal portfolio value at 1 bps transaction costs for all risk budgets and rebalancing schedules.",
-        "tab:app-netpv-1",
-    )
-    net_pv_grid(
-        "2 bps Transaction Cost",
-        "appendix_net_pv_tc2.tex",
-        "Net terminal portfolio value at 2 bps transaction costs for all risk budgets and rebalancing schedules.",
-        "tab:app-netpv-2",
-    )
-
-    # Note: Inference tables were intentionally removed from the paper build.
-
-    # --- Focused turnover table: risk=15% (0 bps), compare across frequencies ---
-    risk_focus = "15.00%"
+    # --- Turnover comparison table: all risks × all frequencies (0 bps) ---
     tc_focus = "0 bps Transaction Cost"
-    rows = []
-    for freq in FREQ_ORDER:
-        cfg = Config(tc_focus, risk_focus, freq)
-        if cfg not in configs:
-            continue
-        turnover = read_turnover(output_root, cfg)
-        row = {"Frequency": freq, "Risk": latex_escape_text(risk_focus)}
-        for strat in STRATEGY_ORDER:
-            if strat in turnover.columns:
-                row[latex_escape_text(strat)] = _reduce_metric_series(turnover[strat], "mean_excluding_ends")
-        rows.append(row)
+    turnover_rows = []
+    for risk_focus in RISK_ORDER:
+        for freq in FREQ_ORDER:
+            cfg = Config(tc_focus, risk_focus, freq)
+            if cfg not in configs:
+                continue
+            turnover = read_turnover(output_root, cfg)
+            row = {"Risk": latex_escape_text(risk_focus), "Frequency": freq}
+            for strat in STRATEGY_ORDER:
+                if strat in turnover.columns:
+                    row[latex_escape_text(strat)] = _reduce_metric_series(turnover[strat], "mean_excluding_ends")
+            turnover_rows.append(row)
 
-    if rows:
-        tdf = pd.DataFrame(rows)
-        # Keep the row order consistent with paper frequency order.
+    if turnover_rows:
+        tdf = pd.DataFrame(turnover_rows)
+        tdf["_risk_sort"] = tdf["Risk"].map({r: i for i, r in enumerate([latex_escape_text(r) for r in RISK_ORDER])})
         tdf["_freq_sort"] = tdf["Frequency"].map({f: i for i, f in enumerate(FREQ_ORDER)})
-        tdf = tdf.sort_values(["_freq_sort"]).drop(columns=["_freq_sort"])
+        tdf = tdf.sort_values(["_risk_sort", "_freq_sort"]).drop(columns=["_risk_sort", "_freq_sort"])
+
         for strat in [latex_escape_text(s) for s in STRATEGY_ORDER]:
             if strat in tdf.columns:
                 tdf[strat] = tdf[strat].map(lambda x: _format_number(x, 3))
+
         tab = tdf.to_latex(index=False, escape=False)
+
+        # Add midrules between risk groups for readability.
+        tab_lines = tab.split("\n")
+        out_lines = []
+        prev_risk = None
+        for line in tab_lines:
+            if "&" in line and "\\\\" in line:
+                parts = line.split("&")
+                current_risk = parts[0].strip() if parts else None
+                # Only treat data rows (risk values like '10.00\\%') as group keys.
+                is_data_row = (current_risk is not None) and ("\\%" in current_risk)
+                if is_data_row:
+                    if prev_risk is not None and current_risk != prev_risk:
+                        out_lines.append("\\midrule")
+                    prev_risk = current_risk
+            out_lines.append(line)
+        tab = "\n".join(out_lines)
+
         write_table(
-            tables_root / "turnover_15pct_zero_cost.tex",
-            "Mean rebalance-to-rebalance sum of absolute weight changes (turnover proxy) at a 15\\% annualized risk budget under 0 bps transaction costs, reported by rebalancing frequency.",
-            "tab:turnover-15pct-zero-cost",
+            tables_root / "turnover_by_risk_zero_cost.tex",
+            "Mean rebalance-to-rebalance sum of absolute \emph{non-cash} weight changes (turnover proxy; cash sleeve excluded) at 0 bps transaction costs, reported across risk budgets and rebalancing frequencies.",
+            "tab:turnover-by-risk-zero-cost",
             tab,
         )
 
     print(f"Wrote tables to: {tables_root}")
+
+    # Appendix weight longtables were intentionally removed from the paper build to keep outputs streamlined.
 
 
 def main() -> None:

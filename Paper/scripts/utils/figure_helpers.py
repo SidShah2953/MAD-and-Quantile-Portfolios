@@ -9,26 +9,98 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Literal
 
+from datetime import datetime
+
 import matplotlib.pyplot as plt
+import matplotlib.dates as mdates
 import pandas as pd
 import numpy as np
 
-# Configure matplotlib for LaTeX-compatible output
-plt.rcParams.update({
-    'font.family': 'serif',
-    'font.size': 10,
-    'axes.labelsize': 10,
-    'axes.titlesize': 11,
-    'xtick.labelsize': 9,
-    'ytick.labelsize': 9,
-    'legend.fontsize': 9,
-    'figure.titlesize': 11,
-    'text.usetex': False,  # Set to True if you have LaTeX installed for prettier rendering
-    'figure.dpi': 300,
-    'savefig.dpi': 300,
-    'savefig.bbox': 'tight',
-    'savefig.pad_inches': 0.05,
-})
+def apply_finance_theme() -> None:
+    """Apply a clean, print-friendly plotting theme suitable for finance figures."""
+    try:
+        plt.style.use("seaborn-v0_8-whitegrid")
+    except Exception:
+        # Fall back silently if style not available.
+        pass
+
+    plt.rcParams.update({
+        # Typography
+        'font.family': 'DejaVu Sans',
+        'font.size': 10,
+        'axes.labelsize': 10,
+        'axes.titlesize': 11,
+        'xtick.labelsize': 9,
+        'ytick.labelsize': 9,
+        'legend.fontsize': 9,
+        'figure.titlesize': 11,
+        'text.usetex': False,
+
+        # Figure export
+        'figure.dpi': 300,
+        'savefig.dpi': 300,
+        'savefig.bbox': 'tight',
+        'savefig.pad_inches': 0.05,
+
+        # Axes / grid styling
+        'axes.facecolor': 'white',
+        'figure.facecolor': 'white',
+        'axes.edgecolor': '#2f2f2f',
+        'axes.linewidth': 0.8,
+        'axes.grid': True,
+        'grid.color': '#d9d9d9',
+        'grid.linestyle': '-',
+        'grid.linewidth': 0.6,
+        'axes.spines.top': False,
+        'axes.spines.right': False,
+
+        # Lines
+        'lines.linewidth': 1.6,
+    })
+
+
+def set_year_ticks_include_ends(ax: plt.Axes, dates: pd.Index | pd.Series) -> None:
+    """Set x-axis ticks to show years and always include start/end year labels."""
+    idx = pd.to_datetime(pd.Index(dates), errors="coerce").dropna()
+    if len(idx) == 0:
+        return
+
+    start = idx.min()
+    end = idx.max()
+    start_year = int(start.year)
+    end_year = int(end.year)
+    span = end_year - start_year
+
+    if span <= 12:
+        step = 1
+    elif span <= 35:
+        step = 5
+    else:
+        step = 10
+
+    # Candidate year ticks (Jan 1), restricted to visible range.
+    year_ticks = [datetime(y, 1, 1) for y in range(start_year, end_year + 1, step)]
+    year_ticks = [t for t in year_ticks if start.to_pydatetime() <= t <= end.to_pydatetime()]
+
+    # Always include exact endpoints so the first/last year are present.
+    ticks = [start.to_pydatetime(), *year_ticks, end.to_pydatetime()]
+
+    # De-duplicate while preserving order.
+    seen = set()
+    unique_ticks: list[datetime] = []
+    for t in ticks:
+        key = mdates.date2num(t)
+        if key in seen:
+            continue
+        seen.add(key)
+        unique_ticks.append(t)
+
+    ax.set_xticks(unique_ticks)
+    ax.xaxis.set_major_formatter(mdates.DateFormatter('%Y'))
+
+
+# Apply theme once on import
+apply_finance_theme()
 
 # Project paths
 PROJECT_ROOT = Path(__file__).resolve().parents[3]
@@ -127,10 +199,13 @@ def load_transaction_cost_data(
     return df
 
 
-def save_figure(fig: plt.Figure, filename: str) -> None:
+def save_figure(fig: plt.Figure, filename: str, *, pad_inches: float | None = None) -> None:
     """Save a matplotlib figure to the figures directory as high DPI PNG."""
     output_path = FIGURES_ROOT / filename
-    fig.savefig(output_path, format='png', dpi=300, bbox_inches='tight')
+    save_kwargs = dict(format='png', dpi=300, bbox_inches='tight')
+    if pad_inches is not None:
+        save_kwargs['pad_inches'] = pad_inches
+    fig.savefig(output_path, **save_kwargs)
     print(f"✓ Saved: {output_path}")
     plt.close(fig)
 

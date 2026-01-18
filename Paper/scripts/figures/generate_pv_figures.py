@@ -24,12 +24,13 @@ from figure_helpers import (
     STRATEGY_LABELS,
     FREQ_ORDER,
     RISK_ORDER,
+    set_year_ticks_include_ends,
 )
 
 
 def plot_pv_curves(tc_label: str = "0 bps Transaction Cost") -> plt.Figure:
     """
-    Plot portfolio value curves for representative risk budgets.
+    Plot indexed portfolio value curves (start = 100) for representative risk budgets.
     
     Creates small multiples: one panel per rebalancing frequency.
     Within each panel, overlay strategies at a representative risk budget (10%).
@@ -51,13 +52,23 @@ def plot_pv_curves(tc_label: str = "0 bps Transaction Cost") -> plt.Figure:
                     
                 label = STRATEGY_LABELS.get(strategy, strategy)
                 color = STRATEGY_COLORS.get(strategy, 'black')
-                
-                ax.plot(pv_df.index, pv_df[strategy], 
-                       label=label, color=color, linewidth=1.5, alpha=0.9)
+
+                series = pv_df[strategy].dropna()
+                if series.empty:
+                    continue
+
+                base = float(series.iloc[0])
+                if base == 0 or np.isnan(base):
+                    continue
+
+                indexed = (series / base) * 100.0
+
+                ax.plot(indexed.index, indexed,
+                        label=label, color=color, linewidth=1.8, alpha=0.95)
             
             ax.set_title(f'Rebalance: {freq}', fontweight='bold')
-            ax.grid(alpha=0.3, linestyle=':')
-            ax.set_ylabel('Portfolio Value ($)')
+            ax.set_ylabel('Indexed Portfolio Value (Start = 100)')
+            set_year_ticks_include_ends(ax, pv_df.index)
             
             if idx == 0:
                 ax.legend(loc='upper left', framealpha=0.9, fontsize=8)
@@ -98,16 +109,42 @@ def plot_terminal_pv_heatmap(tc_label: str = "0 bps Transaction Cost") -> plt.Fi
                         })
             except FileNotFoundError:
                 continue
+
+    all_terminal_values = [
+        row["Terminal_PV"]
+        for strategy in STRATEGY_ORDER
+        for row in data[strategy]
+        if row.get("Terminal_PV") is not None
+    ]
+    if len(all_terminal_values) == 0:
+        fig, ax = plt.subplots(figsize=(6, 3))
+        ax.axis("off")
+        ax.text(0.5, 0.5, f"No terminal PV data found for: {tc_label}", ha="center", va="center")
+        fig.tight_layout()
+        return fig
+
+    global_vmin = float(np.nanmin(all_terminal_values))
+    global_vmax = float(np.nanmax(all_terminal_values))
+    if np.isclose(global_vmin, global_vmax):
+        global_vmax = global_vmin + 1.0
+    global_mid = 0.5 * (global_vmin + global_vmax)
     
     # Create subplots
     n_strategies = len([s for s in STRATEGY_ORDER if len(data[s]) > 0])
-    fig, axes = plt.subplots(1, n_strategies, figsize=(3.5 * n_strategies, 4), 
-                            sharey=True)
+    fig, axes = plt.subplots(
+        1,
+        n_strategies,
+        figsize=(3.5 * n_strategies, 4),
+        sharey=True,
+        constrained_layout=True,
+    )
     
     if n_strategies == 1:
         axes = [axes]
     
     strategy_idx = 0
+    last_im = None
+    last_ax = None
     for strategy in STRATEGY_ORDER:
         if len(data[strategy]) == 0:
             continue
@@ -120,8 +157,15 @@ def plot_terminal_pv_heatmap(tc_label: str = "0 bps Transaction Cost") -> plt.Fi
         pivot = pivot.reindex(index=RISK_ORDER, columns=FREQ_ORDER)
         
         # Plot heatmap
-        im = ax.imshow(pivot.values, cmap='RdYlGn', aspect='auto', 
-                      vmin=pivot.values.min(), vmax=pivot.values.max())
+        im = ax.imshow(
+            pivot.values,
+            cmap='RdYlGn',
+            aspect='auto',
+            vmin=global_vmin,
+            vmax=global_vmax,
+        )
+        last_im = im
+        last_ax = ax
         
         # Add text annotations
         for i in range(len(RISK_ORDER)):
@@ -130,7 +174,7 @@ def plot_terminal_pv_heatmap(tc_label: str = "0 bps Transaction Cost") -> plt.Fi
                 if not np.isnan(val):
                     text = ax.text(j, i, f'{val:.0f}',
                                  ha='center', va='center', fontsize=8,
-                                 color='white' if val < pivot.values.mean() else 'black')
+                                 color='white' if val < global_mid else 'black')
         
         ax.set_xticks(range(len(FREQ_ORDER)))
         ax.set_xticklabels(FREQ_ORDER)
@@ -144,15 +188,15 @@ def plot_terminal_pv_heatmap(tc_label: str = "0 bps Transaction Cost") -> plt.Fi
         label = STRATEGY_LABELS.get(strategy, strategy)
         ax.set_title(label, fontweight='bold')
         
-        # Add colorbar
-        cbar = plt.colorbar(im, ax=ax, fraction=0.046, pad=0.04)
-        cbar.set_label('Terminal PV ($)', rotation=270, labelpad=15)
-        
         strategy_idx += 1
+
+    # One colorbar only on the rightmost panel (scale is shared via global vmin/vmax).
+    if last_im is not None and last_ax is not None:
+        cbar = plt.colorbar(last_im, ax=last_ax, fraction=0.046, pad=0.04)
+        cbar.set_label('Terminal PV ($)', rotation=270, labelpad=15)
     
     fig.suptitle(f'Terminal Portfolio Value Heatmap ({tc_label})', 
                 fontweight='bold', fontsize=12)
-    fig.tight_layout()
     
     return fig
 
@@ -163,7 +207,8 @@ def plot_mdd_heatmap(tc_label: str = "0 bps Transaction Cost") -> plt.Figure:
     
     Same layout as terminal PV heatmap for direct comparison.
     """
-    # Collect MDD values (reported as negative percentages)
+    # Collect MDD values. Source data is typically reported as negative percentages.
+    # For visualization we use drawdown magnitude (positive): larger magnitude = worse.
     data = {strategy: [] for strategy in STRATEGY_ORDER}
     
     for freq in FREQ_ORDER:
@@ -174,23 +219,50 @@ def plot_mdd_heatmap(tc_label: str = "0 bps Transaction Cost") -> plt.Figure:
                 
                 for strategy in STRATEGY_ORDER:
                     if strategy in worst_mdd:
+                        raw = float(worst_mdd[strategy])
+                        mag = -raw if raw <= 0 else raw
                         data[strategy].append({
                             'Frequency': freq,
                             'Risk': risk,
-                            'MDD': float(worst_mdd[strategy])
+                            'MDD_mag': mag
                         })
             except FileNotFoundError:
                 continue
+
+    all_mdd_values = [
+        row["MDD_mag"]
+        for strategy in STRATEGY_ORDER
+        for row in data[strategy]
+        if row.get("MDD_mag") is not None
+    ]
+    if len(all_mdd_values) == 0:
+        fig, ax = plt.subplots(figsize=(6, 3))
+        ax.axis("off")
+        ax.text(0.5, 0.5, f"No MDD data found for: {tc_label}", ha="center", va="center")
+        fig.tight_layout()
+        return fig
+
+    global_vmin = float(np.nanmin(all_mdd_values))
+    global_vmax = float(np.nanmax(all_mdd_values))
+    if np.isclose(global_vmin, global_vmax):
+        global_vmax = global_vmin + 1.0
     
     # Create subplots
     n_strategies = len([s for s in STRATEGY_ORDER if len(data[s]) > 0])
-    fig, axes = plt.subplots(1, n_strategies, figsize=(3.5 * n_strategies, 4), 
-                            sharey=True)
+    fig, axes = plt.subplots(
+        1,
+        n_strategies,
+        figsize=(3.5 * n_strategies, 4),
+        sharey=True,
+        constrained_layout=True,
+    )
     
     if n_strategies == 1:
         axes = [axes]
     
     strategy_idx = 0
+    last_im = None
+    last_ax = None
     for strategy in STRATEGY_ORDER:
         if len(data[strategy]) == 0:
             continue
@@ -199,11 +271,19 @@ def plot_mdd_heatmap(tc_label: str = "0 bps Transaction Cost") -> plt.Figure:
         df = pd.DataFrame(data[strategy])
         
         # Pivot for heatmap
-        pivot = df.pivot(index='Risk', columns='Frequency', values='MDD')
+        pivot = df.pivot(index='Risk', columns='Frequency', values='MDD_mag')
         pivot = pivot.reindex(index=RISK_ORDER, columns=FREQ_ORDER)
         
-        # Plot heatmap (reversed colormap: more negative = worse = red)
-        im = ax.imshow(pivot.values, cmap='RdYlGn_r', aspect='auto')
+        # Plot heatmap: higher magnitude = worse (red). Use shared vmin/vmax across panels.
+        im = ax.imshow(
+            pivot.values,
+            cmap='RdYlGn_r',
+            aspect='auto',
+            vmin=global_vmin,
+            vmax=global_vmax,
+        )
+        last_im = im
+        last_ax = ax
         
         # Add text annotations
         for i in range(len(RISK_ORDER)):
@@ -212,7 +292,7 @@ def plot_mdd_heatmap(tc_label: str = "0 bps Transaction Cost") -> plt.Figure:
                 if not np.isnan(val):
                     text = ax.text(j, i, f'{val:.1f}',
                                  ha='center', va='center', fontsize=8,
-                                 color='white' if val < -30 else 'black')
+                                 color='white' if val >= (0.5 * (global_vmin + global_vmax)) else 'black')
         
         ax.set_xticks(range(len(FREQ_ORDER)))
         ax.set_xticklabels(FREQ_ORDER)
@@ -226,15 +306,15 @@ def plot_mdd_heatmap(tc_label: str = "0 bps Transaction Cost") -> plt.Figure:
         label = STRATEGY_LABELS.get(strategy, strategy)
         ax.set_title(label, fontweight='bold')
         
-        # Add colorbar
-        cbar = plt.colorbar(im, ax=ax, fraction=0.046, pad=0.04)
-        cbar.set_label('Max Drawdown (%)', rotation=270, labelpad=15)
-        
         strategy_idx += 1
+
+    # One colorbar only on the rightmost panel (scale is shared via global vmin/vmax).
+    if last_im is not None and last_ax is not None:
+        cbar = plt.colorbar(last_im, ax=last_ax, fraction=0.046, pad=0.04)
+        cbar.set_label('Max Drawdown Magnitude (%)', rotation=270, labelpad=15)
     
     fig.suptitle(f'Maximum Drawdown Heatmap ({tc_label})', 
                 fontweight='bold', fontsize=12)
-    fig.tight_layout()
     
     return fig
 

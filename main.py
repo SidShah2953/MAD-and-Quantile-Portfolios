@@ -3,6 +3,8 @@ import pandas as pd
 import numpy as np
 import argparse
 
+from dotenv import load_dotenv
+
 from alive_progress import alive_bar
 
 from scripts.analysis.helpers import get_report
@@ -11,7 +13,14 @@ from scripts.finance.Portfolios import StdDevPortfolio, MADPortfolio, IQRPortfol
 
 initial_value = 100
 transaction_cost = 0  # 1% transaction cost
-MAX_ALLOC = float(os.getenv('MAX_ALLOC'))
+
+# Load environment variables from .env for repeatable runs.
+load_dotenv()
+
+_max_alloc = os.getenv('MAX_ALLOC')
+if _max_alloc is None or _max_alloc.strip() == "":
+    raise RuntimeError("MAX_ALLOC is not set. Define it in .env (e.g., MAX_ALLOC=0.25).")
+MAX_ALLOC = float(_max_alloc)
 
 freqs = [
     '1mo',
@@ -49,11 +58,12 @@ def generate_reports(max_risk, transaction_cost=transaction_cost, generate_figur
             os.makedirs(f'{output_dir}/{freq}/Metrics', exist_ok=True)
             os.makedirs(f'{output_dir}/{freq}/Weights', exist_ok=True)
             all_stats = {}
+            all_stats_raw = {}
             all_weights = {}
 
             # Collect all portfolios
             for name, portfolio in portfolios.items():
-                weights, stats = get_report(
+                weights, stats, stats_raw = get_report(
                     portfolio, parameters={
                         'freq': freq,
                         'max_risk': max_risk,
@@ -67,6 +77,8 @@ def generate_reports(max_risk, transaction_cost=transaction_cost, generate_figur
                 weights.to_excel(f'{output_dir}/{freq}/Weights/{name}.xlsx', index=True)
                 all_weights[name] = weights
                 all_stats[name] = stats
+                # Preserve unrounded/raw stats for any calculations that require exact compounding.
+                all_stats_raw[name] = stats_raw
                 stats_used = list(stats.columns)
                 bar()
 
@@ -112,18 +124,34 @@ def generate_reports(max_risk, transaction_cost=transaction_cost, generate_figur
                     plt.close()
 
             # Analysis on period change of weights
-            weight_comp = {
-                'period': all_weights[list(all_weights.keys())[0]].index[1:]
+            # NOTE: weights_df includes two synthetic anchor rows (all zeros) for plotting convenience.
+            # We must drop them before computing turnover / transaction costs, otherwise we create
+            # artificial 100% turnover at the anchor boundaries (notably contaminating S&P BnH).
+            anchor_dt = pd.to_datetime(os.getenv('INVEST_START_DATE', '2000-01-01'))
+            anchor_label = anchor_dt.strftime('%Y-%m-%d')
+            if anchor_label in all_weights[list(all_weights.keys())[0]].index:
+                # Match get_report() behavior where we shift the anchor by one day if it collides.
+                anchor_label = (anchor_dt - pd.Timedelta(days=1)).strftime('%Y-%m-%d')
+            end_anchor_label = f"{int(os.getenv('END_YEAR')) + 1}-01-01"
+
+            weights_for_cost = {
+                name: w.drop(index=[i for i in [anchor_label, end_anchor_label] if i in w.index])
+                for name, w in all_weights.items()
             }
-            for name in all_weights.keys():
-                weights = list(all_weights[name].values / 100)        
-                period_var = []
-                for i in range(1, len(weights)):
-                    # Calculate sum of absolute weight changes
-                    weight_change = np.sum(np.abs(weights[i] - weights[i - 1]))
-                    period_var.append(weight_change)
-                
-                weight_comp[name] = np.array(period_var)
+
+            weight_comp = {
+                'period': weights_for_cost[list(weights_for_cost.keys())[0]].index[1:]
+            }
+            for name in weights_for_cost.keys():
+                # Turnover proxy used for transaction costs.
+                # We charge transaction_cost per trade (one-way) on non-cash assets.
+                # If a cash sleeve exists (CSH), the cash leg is not charged, so
+                # moving into/out of cash is one-way, while asset-to-asset reallocations
+                # still incur both a sell and a buy.
+                weights_df = weights_for_cost[name] / 100
+                non_cash_cols = [c for c in weights_df.columns if c != 'CSH']
+                turnover = weights_df[non_cash_cols].diff().abs().sum(axis=1).iloc[1:]
+                weight_comp[name] = turnover.to_numpy()
 
             weight_comp = pd.DataFrame.from_dict(weight_comp).set_index('period')
             weight_comp.to_excel(f'{output_dir}/{freq}/Weights/Comparison.xlsx')
@@ -149,7 +177,8 @@ def generate_reports(max_risk, transaction_cost=transaction_cost, generate_figur
                     (portfolio, 'Net Invested'): [],
                 }
 
-                returns = all_stats[portfolio]['Return'] / 100
+                # Use raw (decimal) holding-period returns to avoid rounding drift.
+                returns = all_stats_raw[portfolio]['Return']
                 periods = list(returns.index)
                 weight_change = weight_comp[portfolio]
 
@@ -158,7 +187,12 @@ def generate_reports(max_risk, transaction_cost=transaction_cost, generate_figur
                     
                     # Transaction cost incurred at the start of period (when rebalancing)
                     if periods[i] in weight_change.index:
-                        cost = weight_change[periods[i]] * pv * transaction_cost
+                        # By construction, the buy-and-hold benchmark does not rebalance, so turnover is zero.
+                        # Guard against any residual numerical noise.
+                        if portfolio == 'S&P BnH':
+                            cost = 0
+                        else:
+                            cost = weight_change[periods[i]] * pv * transaction_cost
                         df[(portfolio, 'Transaction Cost')].append(cost)
                         pv -= cost
                     else:

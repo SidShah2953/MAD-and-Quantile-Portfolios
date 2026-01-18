@@ -80,8 +80,14 @@ def plot_cost_drag_curves(risk_label: str = "10.00%") -> plt.Figure:
                ha='center', va='center', transform=ax.transAxes)
         return fig
     
-    fig, axes = plt.subplots(2, 2, figsize=(12, 8))
-    axes = axes.flatten()
+    # Figure 11: put all panels in one row and share y-scale.
+    fig, axes = plt.subplots(1, 4, figsize=(16, 4.2), sharey=True)
+
+    # Common y-limits across panels for visual comparability.
+    y_min = float(df['Terminal_Net_PV'].min())
+    y_max = float(df['Terminal_Net_PV'].max())
+    y_pad = 0.03 * (y_max - y_min) if y_max > y_min else 1.0
+    y_lim = (y_min - y_pad, y_max + y_pad)
     
     for idx, freq in enumerate(FREQ_ORDER):
         ax = axes[idx]
@@ -119,6 +125,7 @@ def plot_cost_drag_curves(risk_label: str = "10.00%") -> plt.Figure:
         ax.set_ylabel('Terminal Net Portfolio Value ($)')
         ax.grid(alpha=0.3, linestyle=':')
         ax.set_xticks([0, 1, 2])
+        ax.set_ylim(*y_lim)
         
         if idx == 0:
             ax.legend(loc='best', framealpha=0.9, fontsize=9)

@@ -64,7 +64,7 @@ def main() -> None:
     )
 
     results['Weight Area Figures'] = run_generator(
-        'Strategy Weights (Stacked Areas, 15% Risk)',
+        'Strategy Weights (Stacked Areas, 10% Risk)',
         generate_weight_area_figures.main
     )
     

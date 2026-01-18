@@ -1,11 +1,10 @@
-"""
-Generate the motivation figure: quarterly outlier inflation in volatility.
+"""Paper motivation figure: semi-annual outlier inflation in volatility.
 
-Reads Data/combined.csv, groups daily sector-ETF returns by calendar quarter,
-and plots a modified box-and-whisker showing how standard deviation estimates
-are inflated by outliers.
+Reads Data/combined.csv, pools daily sector-ETF returns within each calendar
+half-year (H1 = Jan--Jun, H2 = Jul--Dec), and plots a modified box-and-whisker
+showing how standard deviation estimates can be inflated by outliers.
 
-Output: figures/motivation_quarterly_outlier_inflation.png
+Output: figures/motivation_semiannual_outlier_inflation.png
 """
 from __future__ import annotations
 
@@ -23,16 +22,16 @@ from figure_helpers import (
 )
 
 
-def compute_quarterly_stats(returns_df: pd.DataFrame) -> pd.DataFrame:
+def compute_semiannual_stats(returns_df: pd.DataFrame) -> pd.DataFrame:
     """
-    Pool sector ETF returns by 6-month period and compute summary statistics.
+    Pool sector ETF returns by calendar half-year and compute summary statistics.
     
     Args:
         returns_df: DataFrame with daily returns, index=Date, columns=ETFs
         
     Returns:
-        DataFrame with one row per 6-month period containing:
-        - quarter: period label (e.g., '2008H1', '2008H2')
+        DataFrame with one row per half-year containing:
+        - halfyear: period label (e.g., '2008H1', '2008H2')
         - mean, q1, median, q3, iqr
         - std_all, std_trimmed (after IQR-based outlier removal)
         - whisker_low, whisker_high (non-outlier extrema)
@@ -41,12 +40,12 @@ def compute_quarterly_stats(returns_df: pd.DataFrame) -> pd.DataFrame:
     sector_cols = get_sector_etf_columns(returns_df)
     df = returns_df[sector_cols].copy()
     
-    # Add 6-month period label (H1 = Jan-Jun, H2 = Jul-Dec)
-    df['quarter'] = df.index.year.astype(str) + 'H' + ((df.index.month - 1) // 6 + 1).astype(str)
+    # Add half-year period label (H1 = Jan-Jun, H2 = Jul-Dec)
+    df['halfyear'] = df.index.year.astype(str) + 'H' + ((df.index.month - 1) // 6 + 1).astype(str)
     
     results = []
-    for quarter, group in df.groupby('quarter'):
-        # Pool all returns across all sector ETFs in this quarter
+    for halfyear, group in df.groupby('halfyear'):
+        # Pool all returns across all sector ETFs in this half-year
         pooled = group[sector_cols].values.flatten()
         pooled = pooled[~np.isnan(pooled)]
         
@@ -76,7 +75,7 @@ def compute_quarterly_stats(returns_df: pd.DataFrame) -> pd.DataFrame:
         whisker_high = pooled[inliers_mask].max() if len(inliers) > 0 else pooled.max()
         
         results.append({
-            'quarter': str(quarter),
+            'halfyear': str(halfyear),
             'mean': mean,
             'q1': q1,
             'median': median,
@@ -93,7 +92,7 @@ def compute_quarterly_stats(returns_df: pd.DataFrame) -> pd.DataFrame:
     return pd.DataFrame(results)
 
 
-def plot_quarterly_outlier_inflation(stats_df: pd.DataFrame) -> plt.Figure:
+def plot_semiannual_outlier_inflation(stats_df: pd.DataFrame) -> plt.Figure:
     """
     Create a modified box-and-whisker plot showing outlier inflation.
     
@@ -103,12 +102,12 @@ def plot_quarterly_outlier_inflation(stats_df: pd.DataFrame) -> plt.Figure:
     Returns:
         matplotlib Figure
     """
-    n_quarters = len(stats_df)
+    n_periods = len(stats_df)
     
     # Create figure
     fig, ax = plt.subplots(figsize=(14, 6))
     
-    # Plot each quarter
+    # Plot each half-year period
     for i, row in stats_df.iterrows():
         x = i
         
@@ -167,9 +166,9 @@ def plot_quarterly_outlier_inflation(stats_df: pd.DataFrame) -> plt.Figure:
                color='green', linewidth=1.5, linestyle=':', alpha=0.8)
     
     # Configure axes
-    ax.set_xticks(range(n_quarters))
-    ax.set_xticklabels(stats_df['quarter'], rotation=45, ha='right')
-    ax.set_xlabel('Six-Month Period')
+    ax.set_xticks(range(n_periods))
+    ax.set_xticklabels(stats_df['halfyear'], rotation=45, ha='right')
+    ax.set_xlabel('Half-Year Period')
     ax.set_ylabel('Daily Simple Return')
     ax.set_title('Six-Month Distributions of Sector ETF Returns: Outlier Inflation in Volatility Estimates')
     ax.grid(axis='y', alpha=0.3, linestyle=':')
@@ -185,16 +184,16 @@ def main() -> None:
     print("Loading data...")
     returns = load_combined_data()
     
-    print("Computing 6-month period statistics...")
-    stats = compute_quarterly_stats(returns)
+    print("Computing half-year period statistics...")
+    stats = compute_semiannual_stats(returns)
     
     print(f"Found {len(stats)} 6-month periods with data")
     print(f"Average outlier inflation: {(stats['std_all'] / stats['std_trimmed']).mean():.3f}x")
     
     print("Creating plot...")
-    fig = plot_quarterly_outlier_inflation(stats)
+    fig = plot_semiannual_outlier_inflation(stats)
     
-    save_figure(fig, 'motivation_quarterly_outlier_inflation.png')
+    save_figure(fig, 'motivation_semiannual_outlier_inflation.png')
 
 
 if __name__ == '__main__':

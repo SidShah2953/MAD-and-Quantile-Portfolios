@@ -240,7 +240,7 @@ def build_tables(project_root: Path) -> None:
     tab = best_df.to_latex(index=False, escape=False, longtable=False)
     write_table(
         tables_root / "summary_zero_cost.tex",
-        "Performance summary at 0\\% transaction costs. For each strategy and rebalancing frequency, results are shown at the risk budget that maximizes terminal portfolio value. MDD values are negative; turnover is one-way turnover per rebalance.",
+        "Performance summary at 0\\% transaction costs. For each strategy and rebalancing frequency, results are shown at the risk budget that maximizes terminal portfolio value. MDD values are negative; turnover is the mean rebalance-to-rebalance sum of absolute \emph{non-cash} weight changes (cash sleeve excluded), which matches the transaction-cost model.",
         "tab:summary-zero-cost",
         tab,
     )
