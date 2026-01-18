@@ -16,26 +16,26 @@ Run:
 
 from __future__ import annotations
 
+if __package__ is None or __package__ == "":
+    import sys
+    from pathlib import Path as _Path
+
+    sys.path.insert(0, str(_Path(__file__).resolve().parents[2]))
+
 import math
 import os
 import re
-from dataclasses import dataclass
 from pathlib import Path
 
 import pandas as pd
 
-
-@dataclass(frozen=True)
-class Config:
-    tc_label: str
-    risk_label: str
-    freq_label: str
-
-
-STRATEGY_ORDER = ["S&P BnH", "Volatility", "MAD", "IQR", "95%"]
-FREQ_ORDER = ["1mo", "3mo", "6mo", "1y"]
-RISK_ORDER = ["5.00%", "10.00%", "15.00%"]
-TC_ORDER = ["0 bps Transaction Cost", "1 bps Transaction Cost", "2 bps Transaction Cost"]
+from Paper.scripts.utils.constants import Config, FREQ_ORDER, RISK_ORDER, STRATEGY_ORDER, TC_ORDER
+from Paper.scripts.utils.latex_parse import parse_simple_tabular_rows
+from Paper.scripts.utils.output_io import (
+    discover_configs as _discover_configs,
+    read_metric as _read_metric,
+    read_transaction_cost_book as _read_transaction_cost_book,
+)
 
 
 def _project_root() -> Path:
@@ -56,31 +56,15 @@ def _read_env(project_root: Path) -> dict[str, str]:
 
 
 def discover_configs(output_root: Path) -> set[Config]:
-    configs: set[Config] = set()
-    for tc_dir in TC_ORDER:
-        tc_path = output_root / tc_dir
-        if not tc_path.exists():
-            continue
-        for risk_dir in RISK_ORDER:
-            risk_path = tc_path / risk_dir
-            if not risk_path.exists():
-                continue
-            for freq_dir in FREQ_ORDER:
-                freq_path = risk_path / freq_dir
-                if not freq_path.exists():
-                    continue
-                configs.add(Config(tc_dir, risk_dir, freq_dir))
-    return configs
+    return set(_discover_configs(output_root))
 
 
 def read_metric(output_root: Path, cfg: Config, metric_name: str) -> pd.DataFrame:
-    path = output_root / cfg.tc_label / cfg.risk_label / cfg.freq_label / "Metrics" / f"{metric_name}.xlsx"
-    return pd.read_excel(path, index_col=0)
+    return _read_metric(output_root, cfg, metric_name)
 
 
 def read_transaction_cost_book(output_root: Path, cfg: Config) -> pd.DataFrame:
-    path = output_root / cfg.tc_label / cfg.risk_label / cfg.freq_label / "Transaction Cost.xlsx"
-    return pd.read_excel(path, header=[0, 1], index_col=0)
+    return _read_transaction_cost_book(output_root, cfg)
 
 
 def _years_between(start: pd.Timestamp, end: pd.Timestamp) -> float:
@@ -130,32 +114,7 @@ def summarize_config(output_root: Path, cfg: Config) -> pd.DataFrame:
 
 
 def _parse_latex_table_rows(tex: str) -> list[list[str]]:
-    """Parse rows of a simple LaTeX tabular from our generated tables.
-
-    Returns list of cell lists. Ignores \midrule etc.
-    """
-    rows: list[list[str]] = []
-    for line in tex.splitlines():
-        line = line.strip()
-        if not line or line.startswith("%"):
-            continue
-        if any(line.startswith(cmd) for cmd in ("\\toprule", "\\midrule", "\\bottomrule")):
-            continue
-        if line.startswith("\\begin") or line.startswith("\\end"):
-            continue
-        if "&" not in line or "\\\\" not in line:
-            continue
-        # strip trailing \\
-        line = line.split("\\\\", 1)[0]
-
-        # Split on column separators only (unescaped &). This avoids breaking on \& within cell text.
-        parts = [p.strip() for p in re.split(r"(?<!\\)&", line)]
-
-        # Unescape common LaTeX sequences used in generated tables.
-        parts = [p.replace("\\&", "&").replace("\\%", "%") for p in parts]
-
-        rows.append(parts)
-    return rows
+    return parse_simple_tabular_rows(tex)
 
 
 def _as_float_percent(text: str) -> float:

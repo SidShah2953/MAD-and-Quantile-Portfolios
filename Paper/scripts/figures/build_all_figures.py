@@ -5,18 +5,20 @@ Runs all figure-generation scripts in sequence and reports success/failure.
 """
 from __future__ import annotations
 
-import sys
 from pathlib import Path
 
-# Add directories to path
-sys.path.insert(0, str(Path(__file__).parent))
-sys.path.insert(0, str(Path(__file__).parent.parent / 'utils'))
+if __package__ is None or __package__ == "":
+    import sys
 
-import generate_motivation_figure
-import generate_pv_figures
-import generate_cost_drag_figure
-import generate_timeline_figure
-import generate_weight_area_figures
+    sys.path.insert(0, str(Path(__file__).resolve().parents[3]))
+
+from Paper.scripts.figures import (
+    generate_cost_drag_figure,
+    generate_motivation_figure,
+    generate_pv_figures,
+    generate_timeline_figure,
+    generate_weight_area_figures,
+)
 
 
 def run_generator(name: str, generator_func) -> bool:
@@ -82,7 +84,7 @@ def main() -> None:
     print(f"\nTotal: {succeeded}/{total} figure sets generated successfully")
     
     if succeeded < total:
-        sys.exit(1)
+        raise SystemExit(1)
 
 
 if __name__ == '__main__':

@@ -5,3 +5,6 @@ scipy
 yfinance
 matplotlib
 alive-progress
+openpyxl
+pypdf
+pdfplumber

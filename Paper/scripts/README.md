@@ -32,8 +32,7 @@ cd Paper/LaTeX
 Or build artifacts separately:
 
 ```bash
-cd Paper/scripts
-python build_all.py
+python -m Paper.scripts.build_all
 ```
 
 Then compile the PDF:
@@ -47,10 +46,10 @@ cd ../LaTeX
 
 ```bash
 # Only regenerate tables
-python build_all.py --tables-only
+python -m Paper.scripts.build_all --tables-only
 
 # Only regenerate figures
-python build_all.py --figures-only
+python -m Paper.scripts.build_all --figures-only
 ```
 
 ## What Gets Generated
@@ -87,10 +86,14 @@ Scripts read from:
 ## Troubleshooting
 
 ### Import Errors
-If you get import errors, ensure you're running from the `Paper/scripts/` directory:
+If you get import errors, prefer running via the module entrypoint from the project root:
 ```bash
-cd Paper/scripts
-python build_all.py
+python -m Paper.scripts.build_all
+```
+
+Legacy script-style entrypoints are still supported:
+```bash
+python Paper/scripts/build_all.py
 ```
 
 ### Missing Output Files

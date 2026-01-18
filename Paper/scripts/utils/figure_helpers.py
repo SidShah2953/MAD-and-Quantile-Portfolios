@@ -1,20 +1,22 @@
-"""
-Shared utilities for paper figure generation.
+"""Shared utilities for paper figure generation.
 
-Provides common imports, paths, plotting configuration, and data loading
-functions used across all figure-generation scripts.
+This module intentionally provides a stable import surface for figure scripts
+(`load_metric`, `save_figure`, ordering constants, etc.). Internally, paths and
+shared constants are sourced from the small utility modules in
+`Paper/scripts/utils/`.
 """
 from __future__ import annotations
 
-from pathlib import Path
-from typing import Literal
+import matplotlib.dates as mdates
+import matplotlib.pyplot as plt
+import pandas as pd
+import numpy as np
 
 from datetime import datetime
 
-import matplotlib.pyplot as plt
-import matplotlib.dates as mdates
-import pandas as pd
-import numpy as np
+from .constants import FREQ_ORDER, RISK_ORDER, STRATEGY_ORDER, TC_ORDER
+from .paths import DATA_ROOT, FIGURES_ROOT, OUTPUT_ROOT, PROJECT_ROOT
+
 
 def apply_finance_theme() -> None:
     """Apply a clean, print-friendly plotting theme suitable for finance figures."""
@@ -99,23 +101,11 @@ def set_year_ticks_include_ends(ax: plt.Axes, dates: pd.Index | pd.Series) -> No
     ax.xaxis.set_major_formatter(mdates.DateFormatter('%Y'))
 
 
-# Apply theme once on import
+# Apply theme once on import.
 apply_finance_theme()
 
-# Project paths
-PROJECT_ROOT = Path(__file__).resolve().parents[3]
-OUTPUT_ROOT = PROJECT_ROOT / "Output"
-DATA_ROOT = PROJECT_ROOT / "Data"
-FIGURES_ROOT = PROJECT_ROOT / "Paper" / "LaTeX" / "figures"
-
-# Ensure figures directory exists
+# Ensure figures directory exists.
 FIGURES_ROOT.mkdir(parents=True, exist_ok=True)
-
-# Standard ordering
-STRATEGY_ORDER = ["S&P BnH", "Volatility", "MAD", "IQR", "95%"]
-FREQ_ORDER = ["1mo", "3mo", "6mo", "1y"]
-RISK_ORDER = ["5.00%", "10.00%", "15.00%"]
-TC_ORDER = ["0 bps Transaction Cost", "1 bps Transaction Cost", "2 bps Transaction Cost"]
 
 # Strategy display names and colors
 STRATEGY_LABELS = {

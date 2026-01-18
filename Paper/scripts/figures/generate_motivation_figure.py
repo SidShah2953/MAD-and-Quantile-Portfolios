@@ -8,14 +8,17 @@ Output: figures/motivation_semiannual_outlier_inflation.png
 """
 from __future__ import annotations
 
+if __package__ is None or __package__ == "":
+    import sys
+    from pathlib import Path
+
+    sys.path.insert(0, str(Path(__file__).resolve().parents[3]))
+
 import pandas as pd
 import matplotlib.pyplot as plt
 import numpy as np
-import sys
-from pathlib import Path
-sys.path.insert(0, str(Path(__file__).parent.parent / 'utils'))
 
-from figure_helpers import (
+from Paper.scripts.utils.figure_helpers import (
     load_combined_data,
     get_sector_etf_columns,
     save_figure,

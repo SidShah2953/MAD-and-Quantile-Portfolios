@@ -17,18 +17,21 @@ Assumes backtest outputs exist under Output/<tc>/<risk>/<freq>/Weights/<strategy
 
 from __future__ import annotations
 
+if __package__ is None or __package__ == "":
+    import sys
+    from pathlib import Path
+
+    sys.path.insert(0, str(Path(__file__).resolve().parents[3]))
+
 from pathlib import Path
 import re
-import sys
 from datetime import datetime
 
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 
-sys.path.insert(0, str(Path(__file__).parent.parent / 'utils'))
-
-from figure_helpers import load_weights, save_figure, FREQ_ORDER, set_year_ticks_include_ends
+from Paper.scripts.utils.figure_helpers import load_weights, save_figure, FREQ_ORDER, set_year_ticks_include_ends
 
 
 RISK_LABEL = "10.00%"

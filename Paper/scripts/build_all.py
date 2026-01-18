@@ -13,15 +13,15 @@ Usage:
 from __future__ import annotations
 
 import argparse
-import sys
 import time
 from pathlib import Path
 
-# Add subdirectories to path
+if __package__ is None or __package__ == "":
+    import sys
+
+    sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+
 SCRIPT_DIR = Path(__file__).parent
-sys.path.insert(0, str(SCRIPT_DIR / 'utils'))
-sys.path.insert(0, str(SCRIPT_DIR / 'tables'))
-sys.path.insert(0, str(SCRIPT_DIR / 'figures'))
 
 
 def run_step(name: str, func, *args) -> tuple[bool, float]:
@@ -51,14 +51,14 @@ def run_step(name: str, func, *args) -> tuple[bool, float]:
 
 def build_tables() -> bool:
     """Generate all LaTeX tables."""
-    from build_paper_tables import main as build_tables_main
+    from Paper.scripts.tables.build_paper_tables import main as build_tables_main
     success, _ = run_step("Generate LaTeX Tables", build_tables_main)
     return success
 
 
 def build_figures() -> bool:
     """Generate all figures."""
-    from build_all_figures import main as build_figures_main
+    from Paper.scripts.figures.build_all_figures import main as build_figures_main
     success, _ = run_step("Generate Figures", build_figures_main)
     return success
 
@@ -133,4 +133,6 @@ Examples:
 
 
 if __name__ == '__main__':
+    import sys
+
     sys.exit(main())

@@ -8,13 +8,16 @@ Output: figures/cost_drag_curves.png
 """
 from __future__ import annotations
 
+if __package__ is None or __package__ == "":
+    import sys
+    from pathlib import Path
+
+    sys.path.insert(0, str(Path(__file__).resolve().parents[3]))
+
 import matplotlib.pyplot as plt
 import pandas as pd
-import sys
-from pathlib import Path
-sys.path.insert(0, str(Path(__file__).parent.parent / 'utils'))
 
-from figure_helpers import (
+from Paper.scripts.utils.figure_helpers import (
     load_transaction_cost_data,
     save_figure,
     STRATEGY_ORDER,

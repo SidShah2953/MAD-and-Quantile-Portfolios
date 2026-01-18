@@ -8,14 +8,17 @@ Output: figures/no_lookahead_timeline.png
 """
 from __future__ import annotations
 
+if __package__ is None or __package__ == "":
+       import sys
+       from pathlib import Path
+
+       sys.path.insert(0, str(Path(__file__).resolve().parents[3]))
+
 import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
 from matplotlib.patches import FancyBboxPatch, FancyArrowPatch
-import sys
-from pathlib import Path
-sys.path.insert(0, str(Path(__file__).parent.parent / 'utils'))
 
-from figure_helpers import save_figure
+from Paper.scripts.utils.figure_helpers import save_figure
 
 
 def plot_timeline() -> plt.Figure:
