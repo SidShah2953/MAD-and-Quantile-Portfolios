@@ -1,0 +1,35 @@
+\documentclass[a4paper]{article}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{geometry}
+\usepackage{graphicx}
+\geometry{margin=1in}
+
+\begin{document}
+
+\section{Introduction}
+
+Portfolio optimization is often presented through the mean--variance framework, but implementable versions of these problems rely on risk estimates computed from finite samples of daily returns. In financial data, a small number of tail observations can disproportionately influence classical volatility estimates, and therefore materially affect the risk constraints that drive portfolio weights. In practice, this sensitivity can lead to unstable allocations across rebalances, particularly when the estimation window is short or markets experience abrupt drawdowns.
+
+This paper studies whether simple, more robust dispersion proxies change realized outcomes in a constrained, implementable setting. The paper compares volatility-constrained optimization against alternatives that constrain mean absolute deviation (MAD), the interquartile range (IQR), and a wider central-quantile range (2.5\%--97.5\%, labeled ``P95''). These measures are attractive because they are interpretable and easy to compute on rolling windows, and because they target the dispersion of returns without allowing a handful of extreme observations to dominate the constraint by construction.
+
+These proxies are not assumed to dominate variance-based volatility in all settings; rather, the question is whether they lead to meaningfully different allocations, turnover, and net performance once implementability constraints and estimation-window design are fixed.
+
+Empirically, the analysis focuses on a liquid, interpretable universe of U.S. sector ETFs over a long sample (1999--2025), with long-only and fully invested constraints and a maximum weight cap to avoid unrealistic concentration. The analysis evaluates annualized risk budgets (5\%, 10\%, 15\%) and rebalancing schedules (1 month, 3 months, 6 months, and 1 year) under a strict no-look-ahead timeline. Because optimized strategies can trade frequently, the paper also reports a transaction-cost robustness analysis using proportional costs that scale with turnover.
+
+\subsection*{Motivating Evidence: Semi-Annual Outlier Inflation in Volatility}
+
+To illustrate why robust dispersion proxies are plausible substitutes for volatility in daily-return windows, the paper summarizes the distribution of daily sector-ETF returns by semi-annual period and visualizes how volatility estimates differ when outliers are included versus removed using an IQR-based rule. The purpose is not to present an investable signal, but to highlight a stylized fact: standard deviation computed on all observations can substantially exceed a trimmed estimate during half-years with large tail events.
+
+\begin{figure}[htbp]
+    \centering
+    % \includegraphics[width=\textwidth]{figure1_semiannual_outliers.pdf}
+    \caption{Semi-annual distributions of daily simple returns for sector ETFs (pooled within each half-year). Boxes show Q1--Q3 with median; whiskers follow the 1.5 $\times$ IQR rule; points denote outliers. The mean is marked, with overlaid $\pm 2\sigma$ bands computed on all daily returns (dashed orange) versus after removing IQR-defined outliers (dotted green).}
+    \label{fig:semiannual_outliers}
+\end{figure}
+
+\textbf{Practitioner takeaway.} If a small number of extreme days can materially inflate dispersion estimates, dispersion-based constraints can become ``tighter'' than intended and induce larger reallocations. Robust dispersion proxies are one practical way to reduce the influence of these episodes within a daily risk constraint, but their value must ultimately be judged by net outcomes after turnover and costs.
+
+This paper makes three contributions. First, it provides an apples-to-apples comparison of volatility-, MAD-, IQR-, and P95-constrained portfolio optimization under the same implementable constraints (long-only, fully invested, and a maximum allocation cap with an explicit cash sleeve). Second, it systematically evaluates these strategies across risk budgets and rebalancing schedules, isolating how the estimation horizon and rebalance frequency interact with both realized risk and turnover. Third, it emphasizes backtest integrity by enforcing a strict no-look-ahead timeline and by reporting outcomes both before and after proportional transaction costs, so that any apparent advantage of a risk proxy is judged on economic viability rather than on frictionless performance alone.
+
+\end{document}

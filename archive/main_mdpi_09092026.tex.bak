@@ -1,0 +1,1386 @@
+%  LaTeX support: latex@mdpi.com 
+%  For support, please attach all files needed for compiling as well as the log file, and specify your operating system, LaTeX version, and LaTeX editor.
+
+%=================================================================
+%	\PassOptionsToPackage{final}{graphicx}
+\documentclass[risks,article,submit,pdftex,moreauthors]{Definitions/mdpi}
+%\documentclass[preprints,article,submit,pdftex,moreauthors]{Definitions/mdpi} 
+
+%--------------------
+% Class Options:
+%--------------------
+
+%=================================================================
+% MDPI internal commands - do not modify
+\firstpage{1} 
+\makeatletter 
+\setcounter{page}{\@firstpage} 
+\makeatother
+\pubvolume{1}
+\issuenum{1}
+\articlenumber{0}
+\pubyear{2026}
+\copyrightyear{2026}
+\externaleditor{} % More than 1 editor, please add `` and '' before the last editor name
+\datereceived{} 
+\daterevised{} % Comment out if no revised date
+\dateaccepted{} 
+\datepublished{ } 
+
+%=================================================================
+% Add packages and commands here. The following packages are loaded in our class file: fontenc, inputenc, calc, indentfirst, fancyhdr, graphicx, epstopdf, lastpage, ifthen, float, amsmath, amssymb, lineno, setspace, enumitem, mathpazo, booktabs, titlesec, etoolbox, tabto, xcolor, colortbl, soul, multirow, microtype, tikz, totcount, changepage, attrib, upgreek, array, tabularx, pbox, ragged2e, tocloft, marginnote, marginfix, enotez, amsthm, natbib, hyperref, cleveref, scrextend, url, geometry, newfloat, caption, draftwatermark, seqsplit
+% cleveref: load \crefname definitions after \begin{document}
+
+\usepackage{amsmath}
+\usepackage{comment}
+\usepackage{xfrac}
+\usepackage[justification=centering]{caption}
+\usepackage{mathtools}
+\usepackage{graphicx}
+\usepackage[T1]{fontenc}
+\usepackage{lmodern}
+
+\usepackage{float}
+\usepackage{booktabs}
+\usepackage{array}
+\usepackage{longtable}
+\usepackage{mathtools}
+\usepackage{subcaption}
+\DeclareMathOperator{\sign}{s}
+% Reviewer-requested revisions are shown in dark yellow for legibility.
+% Remove the color from the command below after the revisions are accepted.
+\definecolor{RevisionMagenta}{RGB}{255, 0, 255}
+\newcommand{\XRev}[1]{\texorpdfstring{{\color{RevisionMagenta}#1}}{#1}}
+
+\definecolor{RevisionYellow}{RGB}{184,134,0}
+\newcommand{\YRev}[1]{\texorpdfstring{{\color{RevisionYellow}#1}}{#1}}
+
+%=================================================================
+% Full title of the paper (Capitalized)
+\Title{Rebalancing Frequency Dominates Risk Proxy Choice: A Comparison of Mean--Variance, MAD, and Quantile-Constrained Portfolios of U.S. Sector ETFs}
+
+% Author Orchid ID: enter ID or remove command
+\newcommand{\orcidauthorA}{0009-0008-1161-3001} 
+\newcommand{\orcidauthorB}{0009-0009-2640-092X}
+\newcommand{\orcidauthorC}{0009-0004-5337-2155} 
+\newcommand{\orcidauthorD}{0000-0002-3836-1851} 
+
+% Authors, for the paper (add full first names)
+\Author{Siddhant Shah\orcidA{},
+Aishwarya Malhotra\orcidB{},
+Gourav Salotra\orcidC{}
+and Eugene Pinsky\orcidD{}}
+
+\address{%
+Department of Computer Science, Metropolitan College, Boston University, 1010 Commonwealth Avenue, \\  Boston, MA 02215, USA;\\ sidshah@bu.edu (S.S.), aish7@bu.edu (A.M.),  gourav15@bu.edu (G.S.); epinsky@bu.edu (E.P.) }
+
+\corres{\hangafter=1 \hangindent=1.05em \hspace{-0.82em}Correspondence: epinsky@bu.edu}
+
+
+\abstract{Practitioners choosing among risk measures for portfolio construction face a real question: does the choice of risk proxy---variance, Mean Absolute Deviation (MAD), interquartile range (IQR), or a wider central-quantile measure---actually change portfolio outcomes, or does it get swamped by other implementation choices? This paper investigates that question by comparing mean--variance optimization with alternatives that constrain risk using MAD, IQR, and a wider central-quantile range (P95), applied to nine U.S. sector ETFs over 27 years. All strategies share the same constraints---long-only, fully invested, with a maximum allocation cap and an explicit cash sleeve---and are evaluated across a range of annualized risk budgets and rebalancing schedules under a strict no-look-ahead timeline. The central finding is that rebalancing frequency is the first-order design choice relative to the risk proxy: once these constraints are imposed, performance differences across rebalancing schedules are typically larger in point estimate than differences across volatility, MAD, IQR, or P95. \YRev{Block-bootstrap intervals show that these point differences are large but, given the small number of non-overlapping long-horizon periods, not uniformly distinguishable from zero, so the result is reported as a robust ordering of design choices rather than as a formally established dominance.} The robust risk proxies are feasible to implement. Still, they are not a free lunch---at longer rebalance intervals in particular, they tend to converge toward similar allocations and realized outcomes as variance-based optimization. For practitioners, this suggests that operational decisions like rebalancing cadence may deserve more attention than the choice of risk metric itself.}
+
+\keyword{portfolio optimization; mean-variance optimization; mean absolute deviation; interquartile range; rebalancing frequency; transaction costs; sector ETFs}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\begin{document}
+
+
+\section{Introduction}
+
+Portfolio optimization is often presented through the mean--variance framework, but implementable versions of these problems rely on risk estimates computed from finite samples of daily returns. In financial data, a small number of tail observations can disproportionately influence classical volatility estimates, and therefore materially affect the risk constraints that drive portfolio weights. In practice, this sensitivity can lead to unstable allocations across rebalances, particularly when the estimation window is short or markets experience abrupt drawdowns.
+
+This paper studies whether simple, more robust dispersion proxies change realized outcomes in a constrained, implementable setting. The paper compares volatility-constrained optimization against alternatives that constrain mean absolute deviation (MAD), the interquartile range (IQR), and a wider central-quantile range (2.5\%--97.5\%, labeled ``P95''). These measures are attractive because they are interpretable and easy to compute on rolling windows, and because they target the dispersion of returns without allowing a handful of extreme observations to dominate the constraint by construction.
+
+These proxies are not assumed to dominate variance-based volatility in all settings; rather, the question is whether they lead to meaningfully different allocations, turnover, and net performance once implementability constraints and estimation-window design are fixed.
+
+Empirically, the analysis focuses on a liquid, interpretable universe of U.S. sector ETFs over a long sample (1999--2025, just under 27 years), with long-only and fully invested constraints and a maximum weight cap to avoid unrealistic concentration. The analysis evaluates annualized risk budgets (5\%, 10\%, 15\%) and rebalancing schedules (1 month, 3 months, 6 months, and 1 year) under a strict no-look-ahead timeline. Because optimized strategies can trade frequently, the paper also reports a transaction-cost robustness analysis using proportional costs that scale with turnover.
+
+\subsection*{Motivating Evidence: Semi-Annual Outlier Inflation in Volatility}
+
+To illustrate why robust dispersion proxies are plausible substitutes for volatility in daily-return windows, the paper summarizes the distribution of daily sector-ETF returns by semi-annual period and visualizes how volatility estimates differ when outliers are included versus removed using an IQR-based rule (\Cref{fig:motivation-outlier-inflation}). The purpose is not to present an investable signal, but to highlight a stylized fact: standard deviation computed on all observations can substantially exceed a trimmed estimate during half-years with large tail events.
+
+
+\begin{figure}[H]
+	\centering
+	\includegraphics[width=0.95\linewidth]{figures/motivation_semiannual_outlier_inflation.png}
+	\caption{Semi-annual distributions of daily simple returns for sector ETFs (pooled within each half-year). Boxes show $Q_1$--$Q_3$ with median; whiskers follow the $1.5 \times \text{IQR}$ rule; points denote outliers. The mean is marked, with overlaid $\pm 2\sigma$ bands computed on all daily returns (dashed orange) versus after removing IQR-defined outliers (dotted green).}
+	\label{fig:motivation-outlier-inflation}
+\end{figure}
+
+\textbf{Practitioner takeaway.} If a small number of extreme days can materially inflate dispersion estimates, dispersion-based constraints can become ``tighter'' than intended and induce larger reallocations. Robust dispersion proxies are one practical way to reduce the influence of these episodes within a daily risk constraint, but their value must ultimately be judged by net outcomes after turnover and costs.
+
+This paper makes three contributions. First, it provides an apples-to-apples comparison of volatility-, MAD-, IQR-, and P95-constrained portfolio optimization under the same implementable constraints (long-only, fully invested, and a maximum allocation cap with an explicit cash sleeve). Second, it systematically evaluates these strategies across risk budgets and rebalancing schedules, isolating how the estimation horizon and rebalance frequency interact with both realized risk and turnover. Third, it emphasizes backtest integrity by enforcing a strict no-look-ahead timeline and by reporting outcomes both before and after proportional transaction costs, so that any apparent advantage of a risk proxy is judged on economic viability rather than on frictionless performance alone.
+
+Three hypotheses organize the empirical work, and \Cref{sec:discussion} returns to each in turn.
+\begin{enumerate}
+	\item \textbf{$H_1$  (rebalancing frequency dominates).} Under a common set of implementability constraints, differences in realized outcomes across rebalancing schedules are larger than differences across the dispersion proxy used to constrain risk.
+	\item \textbf{$H_2$ (proxy choice is second-order, but not negligible).} Once those constraints bind, volatility-, MAD-, IQR-, and P95-constrained portfolios produce broadly similar allocations and realized outcomes, with systematic exceptions traceable to how each proxy's risk budget is calibrated rather than to the risk concept itself.
+	\item \textbf{$H_3$ (turnover is the channel through which costs act).} Because the cost model is proportional to turnover, cross-strategy differences in net performance under transaction costs are explained primarily by differences in turnover intensity.
+\end{enumerate}
+
+\noindent $H_3$ is in part a property of the cost model rather than an independent empirical finding; it is stated explicitly so that the mechanism is testable against the reported turnover figures.
+
+\section{Related Work and Background}
+
+Modern portfolio selection begins with the mean--variance paradigm \citep{Markowitz1952}, which formalizes the trade-off between expected return and variance, and the two-fund separation result in the presence of a risk-free asset \citep{Tobin1958}. In practice, however, implementable optimization depends on noisy, time-varying estimates of inputs---especially expected returns and the covariance matrix---\citep{bestgrauer1991,choprziemba1993,Merton1980}. A long-standing critique is that the optimizer can become an ``error maximizer,'' producing extreme allocations that are optimal for the estimated inputs but unstable out-of-sample \citep{Michaud1989}.
+
+Two themes recur in the literature on making optimized portfolios more stable. The first is to incorporate economically motivated constraints and regularization. Even when constraints are not ``structural truths,'' they can reduce the optimizer's sensitivity and improve realized risk outcomes; long-only and position limits are canonical examples \citep{jagannathanma2003}. The second is to improve estimation. Shrinkage estimators can stabilize covariance matrices \citep{ledoitwolf2003}, and Bayesian/shrinkage approaches to expected returns can reduce the influence of noisy sample means \citep{Jorion1986}. A complementary perspective emphasizes that, in many realistic settings, simple diversified allocations can be difficult to beat out-of-sample, providing a useful benchmark for optimization-based strategies \citep{DeMiguel2009}.
+
+This contribution sits at the intersection of these themes: implementability constraints are kept fixed, and the paper studies whether swapping the risk proxy inside the constraint---from variance-based volatility to robust dispersion measures computed on daily returns---materially changes allocations, turnover, and net performance.
+
+\subsection{Linear and Robust Alternatives to Variance}
+
+Variance penalizes squared deviations and is therefore sensitive to extreme observations. Because financial returns often display skewness, excess kurtosis, and tail events~\citep{Cont2001}, alternative risk measures have been widely explored. Mean absolute deviation (MAD) replaces squared deviations with absolute deviations, yielding a linear programming formulation with attractive computational properties \citep{konnoyamazaki1991}. Subsequent work studies linear programming-based portfolio optimization more broadly, including robust and downside-oriented formulations \citep{Mansini2014}. Empirically, \citet{Simaan1997} compares mean--variance and MAD portfolios under estimation risk and finds that, despite their different loss functions, the two approaches tend to produce comparable out-of-sample performance once parameter uncertainty is taken into account---so MAD's computational simplicity is not obviously purchased at the cost of realized outcomes.
+
+Beyond MAD, a large class of robust portfolio methods modifies either the loss/risk functional (to reduce tail sensitivity) or the input estimation (to reduce parameter uncertainty). Minimax-style and related robust formulations can often be expressed in linear or convex programs, offering transparent constraint-driven control of extreme outcomes \citep{Young1998}. Quantile-based and tail-focused risk measures, such as value-at-risk and conditional value-at-risk (CVaR), provide another route to robustness by explicitly controlling tail losses; CVaR optimization is convex and has a well-known linear programming representation \citep{rockafellaruryasev2000}. Downside-risk performance measures, such as the Sortino ratio, similarly emphasize asymmetric risk \citep{sortinoprice1994}. This paper focuses on dispersion proxies (MAD, IQR, and a wider central-quantile range labeled ``P95'') that are simple to interpret and straightforward to compute on rolling windows; these measures are not intended to be the last word on tail risk, but rather a practical set of alternatives that can be embedded into a constrained, implementable optimizer.
+
+\YRev{The question of which risk measure is the right one is not settled even within the original mean--variance framework. In a retrospective assessment of his own theory, \citet{Markowitz2010} revisits the choice of risk criterion directly, noting that variance was originally adopted in part for its analytical tractability rather than because it uniquely captures an investor's aversion to loss, and discussing semi-variance and other downside-oriented alternatives as criteria that can be more consistent with investor preferences even though they are harder to optimize. This paper's comparison of variance against MAD, IQR, and P95 can be read as an empirical, implementation-focused counterpart to that same question: rather than arguing for a single ``correct'' risk criterion on theoretical grounds, it asks how much the choice actually matters once the portfolio problem is made implementable.}
+
+\subsection{Turnover, Rebalancing Frequency, and Transaction Costs}
+
+Rebalancing can improve risk control and allow the investor to respond to changing return and covariance structure, but it mechanically induces turnover. Turnover matters because trading is costly: even in liquid markets, the cost of active investing can materially erode performance \citep{French2008}. Classic theory makes this point sharply: with transaction costs, optimal policies generally involve a trade-off between tracking the desired target and avoiding excessive trading, often generating ``no-trade'' regions and gradual adjustment rather than continuous re-optimization \citep{Constantinides1986}. Building directly on this theory, \citet{DonohueYip2003} characterize the size and shape of the optimal no-trade region as a function of transaction costs, asset correlations, and risk aversion, and show empirically that calendar-based rebalancing rules---the kind of fixed-schedule policy studied in this paper---can perform close to the theoretically optimal no-trade-region policy once transaction costs are accounted for, even though such rules ignore the current distance from target weights.
+
+From an implementation perspective, costs are not only explicit fees, but also spreads and market impact. The market microstructure literature formalizes how trading moves prices and how liquidity provision affects execution costs \citep{Kyle1985}, while optimal execution models characterize the trade-off between impact and timing when trading a target position \citep{almgrenchriss2001}. More recent dynamic portfolio choice work emphasizes that predictable returns can justify trading, but that transaction costs and risk constraints fundamentally shape optimal turnover \citep{garleanupedersen2013}. These impact- and execution-aware models are considerably more realistic than a proportional-cost assumption, but they also introduce additional parameters (e.g., impact coefficients, liquidity dynamics) that are themselves estimated with error and are difficult to calibrate consistently across nine sector ETFs, the 48 combinations of risk proxy, rebalancing schedule, and risk budget evaluated in this study, and 27 years of data. In this sector-ETF setting, the paper instead uses a simple proportional cost model applied to turnover as a deliberately transparent proxy for these frictions, prioritizing comparability across the many risk-proxy and rebalancing-schedule combinations tested over the added realism of a full market-impact model, and evaluates whether risk-proxy differences translate into economically meaningful turnover differences.
+
+\subsection{Backtest Integrity}
+
+Because optimization and rebalancing are sensitive to the information set, careful backtest design is essential. The backtest follows a strict no-look-ahead timeline: weights for a holding period are computed using only returns from the immediately preceding estimation window (Figure 2). This design choice ensures that the performance evaluation reflects an implementable process rather than inadvertent leakage of future information.
+
+More broadly, the backtesting literature cautions that repeated searches over strategies, hyperparameters, and sample splits can lead to data snooping and selection bias, in which apparently strong in-sample results fail out of sample. A foundational reference is the ``reality check'' approach, which explicitly accounts for multiple testing when evaluating strategy performance \citep{White2000}. In addition, practical guidance emphasizes guarding against backtest overfitting and selection bias when comparing many strategy variants \citep{LopezdePrado2018}. This paper does not attempt a formal multiple-testing correction such as White's reality check; instead, it limits the scope for data snooping structurally, by fixing a small, pre-specified, fully crossed design---four risk proxies, three annualized risk budgets, and four rebalancing schedules---rather than searching freely over model variants, hyperparameters, or sample splits. Combined with fixed rules, explicit no-look-ahead timelines, and reported turnover/cost sensitivity, this transparency-first design is intended to reduce the scope for inadvertent overfitting, even without a formal statistical correction.
+
+\subsection{Summary and Gap}
+
+Taken together, prior work has largely studied these themes in isolation. Robust dispersion and quantile-based risk measures have mostly been evaluated against mean--variance either without the joint implementability constraints (long-only, fully invested, allocation caps, and an explicit cash sleeve) used here, or without systematically varying rebalancing frequency alongside the risk proxy. Conversely, the rebalancing and transaction-cost literature typically studies how often to trade a fixed target allocation, largely independent of how that target is chosen; recent empirical work on ETF portfolios, for instance, examines how rebalancing affects realized risk-adjusted returns without varying the underlying risk proxy used to set target weights \citep{banyai2024}. This paper's contribution is to jointly vary the risk proxy and the rebalancing schedule under a single, implementable set of constraints and a strict no-look-ahead backtest, which is what allows it to compare the economic magnitude of these two design choices directly rather than studying either in isolation.
+
+
+\section{Data and Methodology}
+
+\subsection{Data Used and Collected}
+
+This paper studies a liquid and interpretable U.S. equity universe consisting of nine Select Sector SPDR ETFs:
+
+\begin{enumerate}
+    \item XLB (Materials)
+    \item XLE (Energy)
+    \item XLF (Financials)
+    \item XLI (Industrials)
+    \item XLK (Technology)
+    \item XLP (Consumer Staples)
+    \item XLU (Utilities)
+    \item XLV (Health Care)
+    \item XLY (Consumer Discretionary)
+\end{enumerate}
+
+As these nine ETFs have been in existence for the entire test period, the portfolio universe is restricted to them. Portfolio weights are chosen over this nine-asset sector universe. As a benchmark, the S\&P 500 index (\^{}GSPC) is used.
+
+In addition, the optimizer is allowed to hold residual wealth in a cash-equivalent sleeve (CSH) with a daily return of 0. This makes cash an explicit asset in the feasible set but does not change the risky-asset universe.
+
+Daily adjusted-close price data are collected from Yahoo Finance and merged into a single panel dataset. The sample runs from 4 January 1999 through 30 December 2025 --- just under 27 years (26.99 years) of daily data. Let $P_{t,i}$ denote the adjusted close price for asset $i$ on day $t$. The daily simple return is defined as
+\begin{equation}
+    r_{t,i} \triangleq \frac{P_{t,i}}{P_{t-1,i}} - 1.
+    \label{eq:daily_return}
+\end{equation}
+Arithmetic returns are used throughout to match the backtest implementation.
+
+\paragraph{Data and return-definition note.} Adjusted close prices reflect splits and distributions as provided by the vendor; results therefore inherit vendor conventions and any associated data-quality issues. The analysis does not model taxes or borrowing/short-rebate costs. The cash sleeve is modeled as a zero-return instrument for the entire sample; over 1999--2025, realized short-term rates varied substantially (roughly 5--6\% in 2000 and 2006--2007, near zero for extended periods in 2009--2015 and 2020--2021, and near 5\% again in 2023--2024). A flat zero return therefore understates the opportunity cost of de-risking into cash during high-rate periods, which is a relevant simplification given that binding risk budgets in this design push weight into the cash sleeve. This assumption is treated as a limitation of the present design rather than a claim that cash returns are economically negligible; \YRev{\Cref{sec:cash-robustness} tests this directly by rerunning the grid with the cash sleeve earning the realized 3-month Treasury bill yield.}
+
+\subsection{Returns and Period Construction}
+
+Daily returns are aggregated into non-overlapping holding periods according to the chosen rebalancing schedule (1 month, 3 months, 6 months, 1 year). For each holding period, portfolio performance is computed by applying the period's weights to daily returns and compounding within the period. These non-overlapping periods are referred to as holding periods (i.e., rebalance intervals).
+
+\subsection{Risk Measures}
+
+All risk constraints are applied to dispersion computed on daily portfolio returns within the estimation window $\{r_{p,t}\}_{t=1}^{T}$.
+
+\subsubsection{Volatility (Standard Deviation)}
+
+This paper uses the sample standard deviation of daily portfolio returns as the classical variance-based dispersion proxy,
+\begin{equation}
+    \sigma(r_p) \triangleq \sqrt{\mathrm{Var}(r_p)}.
+    \label{eq:vol}
+\end{equation}
+
+\subsubsection{Mean Absolute Deviation (MAD)}
+
+MAD replaces squared deviations with absolute deviations. For a return series $r_p$ with mean $E[r_p]$, the population MAD is
+\begin{equation}
+    \mathrm{MAD}(r_p) \triangleq E\big[\,|r_p - E[r_p]|\,\big],
+    \label{eq:mad}
+\end{equation}
+with the obvious sample analog used in implementation \citep{konnoyamazaki1991}.
+
+\subsubsection{Interquartile Range (IQR)}
+
+The IQR summarizes central dispersion via the difference between the 75th and 25th percentiles of daily returns,
+\begin{equation}
+    \mathrm{IQR}(r_p) \triangleq Q_3(r_p) - Q_1(r_p).
+    \label{eq:iqr}
+\end{equation}
+
+\subsubsection{Central 95\% Range (``P95'')}
+
+As a wider central-dispersion proxy, this paper uses the central 95\% range between the 97.5th and 2.5th percentiles of daily returns (labeled ``P95'' in prose, and denoted $\mathrm{CR95}$ in equations and tables),
+\begin{equation}
+    \mathrm{CR95}(r_p) \triangleq Q_{0.975}(r_p) - Q_{0.025}(r_p).
+    \label{eq:cr95}
+\end{equation}
+
+\subsection{Implementation Details and Constraints}
+\label{sec:impl-details}
+
+\subsubsection{Notation}
+
+Let $S$ denote the set of nine sector ETFs, and let $\mathrm{CSH}$ denote a cash-equivalent asset with daily return $r_{\mathrm{CSH},t} = 0$. \YRev{Vectors and matrices are set in bold throughout (e.g., $\mathbf{r}_t$, $\mathbf{w}$, $\hat{\boldsymbol{\mu}}$, $\hat{\boldsymbol{\Sigma}}$); scalars, including individual components of a vector such as $w_i$, $w_{\max}$, and $r_{p,t}$, are set in italics as usual.} The implementation uses an explicit $N=10$-asset return vector $\YRev{\mathbf{r}_t} \in \mathbb{R}^N$ that stacks the nine sector-ETF returns and the cash return. A portfolio is characterized by weights $\YRev{\mathbf{w}} \in \mathbb{R}^N$, producing daily portfolio returns $r_{p,t} = \YRev{\mathbf{w}^\top \mathbf{r}_t}$.
+
+\subsubsection{Implementable Constraints}
+
+Portfolios are constrained to be long-only and fully invested across the sector ETFs and cash:
+\begin{align}
+    \sum_{i=1}^{N} w_i &= 1, \label{eq:fullinvest} \\
+    w_i &\geq 0 \quad \forall i. \label{eq:longonly}
+\end{align}
+A maximum allocation constraint is imposed on sector ETFs only, to prevent extreme concentration in any single sector:
+\begin{equation}
+    0 \leq w_i \leq w_{\max} \quad \forall i \in S, \qquad 0 \leq w_{\mathrm{CSH}} \leq 1.
+    \label{eq:capconstraint}
+\end{equation}
+In the implementation used for the paper build, sector-ETF weights are capped at $w_{\max} = 25\%$; this level was chosen to allow meaningful sector concentration relative to an equal-weighted 11.1\% baseline across the nine sectors, while still preventing any single sector from dominating the portfolio. The residual weight is held in cash via the full-investment constraint.
+
+\medskip\noindent
+\textbf{Cash modeling assumption:} The feasible set includes a cash-equivalent asset (CSH) with a daily return of 0 to allow the optimizer to de-risk by allocating to cash. This implies no earned interest on idle cash; cash is treated purely as a risk-reduction instrument. Consistent with this assumption, the risk-free rate is set to zero when reporting risk-adjusted ratios. \YRev{\Cref{sec:cash-robustness} relaxes this assumption and reruns the grid with realized Treasury bill yields;} \Cref{sec:limitations} discusses the residual limitation.
+
+\subsubsection{Optimization Objective and Portfolio Problems}
+
+For each rebalance date, expected returns $\YRev{\hat{\boldsymbol{\mu}}}$ are estimated as mean daily returns over the immediately prior estimation window, and weights are chosen to maximize $\YRev{\hat{\boldsymbol{\mu}}^\top \mathbf{w}}$ subject to a risk budget.
+
+\medskip\noindent
+\textbf{Solver:}  Constrained nonlinear optimization is solved using SciPy's (version 1.17.1) SLSQP routine.
+
+\subsection{Portfolio Optimization Problems}
+
+For each rebalance date, weights are chosen to maximize estimated mean return subject to a dispersion budget and the implementability constraints in Equations~\eqref{eq:fullinvest}--\eqref{eq:capconstraint}.
+There are four portfolio optimization problems:
+
+\begin{enumerate}
+
+\item \textbf{Volatility-constrained portfolio:} This is the standard classical Markowitz framework~\citep{Markowitz1952}
+\begin{align}
+    \YRev{\max_{\mathbf{w}}} \quad & \YRev{\hat{\boldsymbol{\mu}}^\top \mathbf{w}} \label{eq:vol_obj} \\
+    \text{s.t.} \quad & \YRev{\sqrt{\mathbf{w}^\top \hat{\boldsymbol{\Sigma}} \mathbf{w}}} \leq \sigma_{\max}, \label{eq:vol_constraint} \\
+    & \sum_{i=1}^{N} w_i = 1, \quad w_i \geq 0 \; \forall i, \quad w_i \leq w_{\max} \; \forall i \in S. \label{eq:vol_feasible}
+\end{align}
+
+\item \textbf{MAD-constrained portfolio: } Define the sample MAD of portfolio returns over the estimation window; then solve
+\begin{align}
+    \YRev{\max_{\mathbf{w}}} \quad & \YRev{\hat{\boldsymbol{\mu}}^\top \mathbf{w}} \label{eq:mad_obj} \\
+    \text{s.t.} \quad & \mathrm{MAD}(\YRev{\{\mathbf{w}^\top \mathbf{r}_t\}}) \leq \mathrm{MAD}_{\max}, \label{eq:mad_constraint} \\
+    & \sum_{i=1}^{N} w_i = 1, \quad w_i \geq 0 \; \forall i, \quad w_i \leq w_{\max} \; \forall i \in S. \label{eq:mad_feasible}
+\end{align}
+
+\item \textbf{IQR-constrained portfolio:} Define the sample IQR of portfolio returns over the estimation window; then solve
+\begin{align}
+    \YRev{\max_{\mathbf{w}}} \quad & \YRev{\hat{\boldsymbol{\mu}}^\top \mathbf{w}} \label{eq:iqr_obj} \\
+    \text{s.t.} \quad & \mathrm{IQR}(\YRev{\{\mathbf{w}^\top \mathbf{r}_t\}}) \leq \mathrm{IQR}_{\max}, \label{eq:iqr_constraint} \\
+    & \sum_{i=1}^{N} w_i = 1, \quad w_i \geq 0 \; \forall i, \quad w_i \leq w_{\max} \; \forall i \in S. \label{eq:iqr_feasible}
+\end{align}
+
+\item \textbf{P95-constrained portfolio:} Define the sample central 95\% range of portfolio returns over the estimation window; then solve
+\begin{align}
+    \YRev{\max_{\mathbf{w}}} \quad & \YRev{\hat{\boldsymbol{\mu}}^\top \mathbf{w}} \label{eq:p95_obj} \\
+    \text{s.t.} \quad & \mathrm{CR95}(\YRev{\{\mathbf{w}^\top \mathbf{r}_t\}}) \leq \mathrm{CR95}_{\max}, \label{eq:p95_constraint} \\
+    & \sum_{i=1}^{N} w_i = 1, \quad w_i \geq 0 \; \forall i, \quad w_i \leq w_{\max} \; \forall i \in S. \label{eq:p95_feasible}
+\end{align}
+\end{enumerate}
+
+\subsection{Risk Budget Calibration Across Measures}
+
+Risk budgets are parameterized at an annualized scale and mapped to measure-specific constraints, allowing different dispersion proxies to be compared under a common target risk level.
+
+\subsubsection{Annual-to-daily risk scaling (to ensure comparability across rebalancing schedules).} 
+
+All risk constraints are applied to risk computed on daily portfolio returns within the estimation window. Let $\sigma^{\mathrm{ann}}_{\max}$ denote the annualized risk budget (5\%, 10\%, 15\%). This is converted into a daily target via the square-root-of-time rule,
+\begin{equation}
+    \sigma^{\mathrm{day}}_{\max} \triangleq \frac{\sigma^{\mathrm{ann}}_{\max}}{\sqrt{252}},
+    \label{eq:daily_scaling}
+\end{equation}
+which follows from the variance-additivity of (approximately) uncorrelated daily returns under standard modeling assumptions \citep{Campbell1997,Hull2018}. The optimizer is then constrained using risk functions computed in daily units. This design fixes the annualized risk budget across rebalancing frequencies while still using only information available at each rebalance.
+
+\subsubsection{Measure-to-measure calibration (normal approximation).} To place MAD and quantile-range constraints on a scale comparable to volatility, normal-approximation mappings are applied to daily returns. Under a normal model, these dispersion measures are fixed multiples of $\sigma$ and can be expressed in closed form using standard normal quantiles \citep{CasellaBerger2002}:
+\begin{align}
+    \mathrm{MAD}^{\mathrm{day}}_{\max} &\triangleq \sigma^{\mathrm{day}}_{\max} \sqrt{\frac{2}{\pi}}, \label{eq:mad_calib} \\
+    \mathrm{IQR}^{\mathrm{day}}_{\max} &\triangleq 2\, \sigma^{\mathrm{day}}_{\max} \, \Phi^{-1}(0.75) \approx 1.349\, \sigma^{\mathrm{day}}_{\max}, \label{eq:iqr_calib} \\
+    \mathrm{CR95}^{\mathrm{day}}_{\max} &\triangleq 2\, \sigma^{\mathrm{day}}_{\max} \, \Phi^{-1}(0.975) \approx 3.92\, \sigma^{\mathrm{day}}_{\max}. \label{eq:cr95_calib}
+\end{align}
+These mappings are used only to fix a common \emph{starting} scale across proxies at each risk budget; they do not assume that realized daily returns are normally distributed, and realized dispersion measures are reported directly rather than inferred from this mapping. Indeed, to the extent that daily sector-ETF returns exhibit fat tails (as illustrated in Section~1's motivating evidence), realized MAD, IQR, and P95 values are expected to diverge from their normal-implied levels under the volatility-equivalent budget; this divergence is itself an informative empirical outcome of the design rather than a shortcoming of the calibration. As shown in Sections~4--6, IQR in particular realizes higher volatility and higher turnover than the other three proxies at the same nominal risk budget, consistent with this calibration binding more loosely for IQR under fat-tailed daily returns.
+
+\subsubsection{Annualization of reported dispersion measures.} 
+
+For reporting, realized dispersion measures computed on daily returns are annualized using the square-root-of-time rule, as for volatility. For example, $\mathrm{AnnMAD} = \sqrt{252}\, \mathrm{MAD}^{\mathrm{day}}$; the same scaling is applied to IQR and the central 95\% range. This scaling is exact for standard deviation under i.i.d.\ daily returns, but is only an approximation for quantile-based measures such as IQR and CR95, whose annualization relies on the aggregated return distribution behaving approximately normally at the annual horizon rather than on an exact scaling law. Reported annualized IQR and P95 values should therefore be interpreted as approximate, comparable-scale summaries rather than exact transformations.
+
+\subsection{Backtest Design}
+
+\subsubsection{Rebalancing Schedules}
+
+Rebalancing schedules of 1 month, 3 months, 6 months, and 1 year are evaluated. Each schedule defines a sequence of non-overlapping holding periods.
+
+\subsubsection{No-Look-Ahead Timeline}
+
+This study enforces a strict information timeline:
+\begin{enumerate}
+    \item At the start of holding period $k$, estimate $\YRev{\hat{\boldsymbol{\mu}}}$ and risk inputs only from daily returns in the immediately prior period $k-1$.
+    \item Solve the optimization problem to obtain weights $\YRev{\mathbf{w}_k}$.
+    \item Apply $\YRev{\mathbf{w}_k}$ to realized daily returns within period $k$ to compute performance.
+\end{enumerate}
+This design ensures that weights for period $k$ do not use any return information from within period $k$.
+
+Because the estimation window is defined as the immediately prior holding period, the estimation window length equals the holding period length for each rebalancing schedule.
+
+\subsubsection{Rebalance-day mechanics.} 
+
+Weights $\mathbf{w}_k$ become effective at the start of period $k$; proportional transaction costs (when modeled) are applied immediately before earning period-$k$ returns. \YRev{To remove any ambiguity about what ``held during period $k$'' means: the target proportions $\mathbf{w}_k$ are treated as constant throughout period $k$ rather than as an initial allocation that is left to drift with relative asset performance. Concretely, the same weight vector $\mathbf{w}_k$ is used to compute every daily portfolio return within the period, $r_{p,t} = \mathbf{w}_k^\top \mathbf{r}_t$ for each day $t$ in period $k$, which is equivalent to costlessly rebalancing back to $\mathbf{w}_k$ at the end of every trading day inside the holding period. This is a modeling simplification, not a claim that daily rebalancing is itself costless in practice: because the transaction-cost model of \Cref{sec:tc-robustness} only charges turnover at the period-$k$ rebalance dates $\mathbf{w}_{k-1}\!\to\!\mathbf{w}_k$, the (hypothetical) within-period rebalancing implied by holding $\mathbf{w}_k$ constant is treated as free. The alternative --- letting weights drift within the period as in a literal buy-and-hold implementation, with $\mathbf{w}_k$ fixed only at the start of the period --- would introduce a second source of realized-risk variation (drift-induced deviation from the targeted risk budget) that is deliberately excluded here so that realized risk differences across proxies can be attributed to the risk constraint itself rather than to intra-period drift.} \Cref{fig:no-lookahead} summarizes this timeline.
+
+\begin{figure}[H]
+	\centering
+	\includegraphics[width=0.95\linewidth]{figures/no_lookahead_timeline.png}
+	\caption{Backtest timeline. Inputs for period $k$ weights are estimated using only period $k-1$ returns. \YRev{The resulting weights $\mathbf{w}_k$ are applied at the start of period $k$ and held constant at those target proportions for every day of the period (i.e., costlessly rebalanced back to $\mathbf{w}_k$ daily within the period), rather than left to drift with relative asset performance; see \Cref{sec:impl-details} for the exact return formula.}}
+	\label{fig:no-lookahead}
+\end{figure}
+
+\subsubsection{Estimation Window Length and Rebalancing Frequency}
+
+Tying the estimation window to the holding period, as described above, means that shorter rebalancing schedules are estimated from correspondingly shorter return histories --- for example, the 1-month schedule estimates all risk measures from roughly 21 daily observations. This is a deliberate design choice: it keeps the estimation window strictly aligned with the information an investor would actually have accumulated since the last rebalance, avoiding an arbitrary separate choice of lookback length. However, it also means that quantile-based measures, and P95 in particular, are estimated with substantial noise at short windows, since a 2.5th/97.5th-percentile estimate from 21 observations is close to the sample minimum and maximum. This raises a specific concern for interpreting this paper's central finding: if rebalancing frequency appears to dominate risk-proxy choice partly because short-window quantile estimates become unstable or degenerate, that would be an estimation-noise artifact rather than a genuine finding that the proxies are economically interchangeable at high rebalance frequency. This paper treats the coupling of window length to holding period as a transparent, implementable baseline design, and flags the decoupling of estimation-window length from rebalancing frequency (e.g., using a fixed lookback regardless of holding-period length) as an important robustness check for disentangling these two explanations.
+
+\subsubsection{Transaction Costs and Turnover}
+
+This paper models proportional transaction costs that scale with turnover. Let $\YRev{\mathbf{w}_k}$ denote weights at rebalance $k$; define charged turnover (total traded notional in risky assets as a fraction of portfolio value) as
+\begin{equation}
+    \tau_k \triangleq \sum_{i \in S} |w_{k,i} - w_{k-1,i}|,
+    \label{eq:turnover}
+\end{equation}
+where $S$ is the set of sector ETFs (excluding the cash sleeve CSH). This corresponds to charging a one-way fee per trade on risky assets while treating the cash leg as free: reallocations between cash and a risky asset incur a one-way fee, whereas reallocations between risky assets incur both a sell and a buy fee.
+
+For a transaction cost rate $c$ in basis points (bps), a rebalance-time cost proportional to traded notional is applied. In the baseline robustness analysis, $c \in \{0, 1, 2\}$ bps is used (equivalently 0.00\%, 0.01\%, 0.02\% per unit traded). The rebalance haircut is
+\begin{equation}
+    \mathrm{Cost}_k \triangleq c\, \tau_k\, V_{k^-},
+    \label{eq:cost}
+\end{equation}
+where $V_{k^-}$ is portfolio value immediately before rebalancing. When the cash sleeve is absent (or fixed at zero), buys and sells in risky assets match in aggregate, and the corresponding one-way risky-asset turnover is $\tfrac{1}{2}\tau_k$.
+
+\subsection{Performance Metrics}
+
+Performance is evaluated using both level and risk-adjusted measures.
+
+\subsubsection{Terminal Wealth and Portfolio Value}
+
+Let $V_t$ denote portfolio value; the terminal $V_T$ is reported along with time-series plots of $V_t$.
+
+\subsubsection{Risk and Risk-Adjusted Return}
+
+Realized volatility, realized MAD, and realized IQR are reported. Risk-adjusted performance is summarized using an explicit return-to-volatility ratio:
+\begin{equation}
+    \mathrm{CAGR/AnnVol} \triangleq \frac{\mathrm{CAGR}}{\mathrm{AnnVol}},
+    \label{eq:cagr_annvol}
+\end{equation}
+where CAGR is used as the numerator to align with long-horizon compounding in the backtest. This explicit label (CAGR/AnnVol) is used rather than the conventional Sharpe ratio, which is typically defined using mean excess returns. Table and figure columns headed ``CAGR/AnnVol'' throughout this paper refer to this ratio, not the conventional Sharpe ratio.
+
+\subsubsection{Drawdown}
+
+Two drawdown measures are reported. The \emph{full-sample maximum drawdown} is computed from the running peak-to-trough decline of the entire daily cumulative wealth path $V_t$, without reference to rebalance boundaries:
+\begin{equation}
+    \mathrm{MDD}^{\mathrm{full}} \triangleq \min_{t \leq T} \left( \frac{V_t}{\max_{s \leq t} V_s} - 1 \right).
+    \label{eq:mdd_full}
+\end{equation}
+Because it is boundary-free, it captures declines that straddle two holding periods, and its measurement window does not depend on the rebalancing schedule. It is therefore comparable across strategies, risk budgets, and rebalancing schedules, and it is the statistic on which every cross-schedule drawdown comparison in this paper is based. The \emph{within-period maximum drawdown (within-period MDD)} applies the same peak-to-trough definition separately to the daily return path of each holding period, and the worst such value across periods is reported. This measure resets at every rebalance boundary, which gives it two properties that must be kept in mind. First, it cannot see a decline that begins in one holding period and continues into the next. Second, it mechanically admits deeper values at longer holding periods, because a longer window contains more of any given peak-to-trough move. Its measurement window is the holding period itself and therefore varies by construction along the rebalancing dimension, so within-period drawdowns are \emph{not} comparable across rebalancing schedules. They are retained as a per-period diagnostic and for continuity with the period-level metric grids, not as a basis for cross-schedule inference.
+
+\subsubsection{Turnover}
+
+Turnover levels by strategy and rebalance schedule are reported as a key driver of transaction cost sensitivity.
+
+\section{Empirical Results: 0 bps Transaction Costs}
+\label{sec:results-0bps}
+
+This section presents the core results in a frictionless setting (0 bps proportional transaction costs), emphasizing how outcomes vary by risk proxy and rebalancing schedule at a fixed, pre-specified annualized risk budget. The paper presents the main figures and summary table in-text, followed by the complete per-metric grids across the full risk-budget and rebalancing grid.
+
+Because the backtest evaluates a grid of specifications (risk budgets, frequencies, and risk proxies), Table~\ref{tab:summary-zero-cost} below reports, for each strategy and rebalancing frequency, results at the risk budget that maximizes terminal portfolio value (a ``best-of-three'' view across the 5\%/10\%/15\% grid); the fixed-10\%-budget view used for direct cross-proxy comparison and the anchoring example below is reported separately in Table~\ref{tab:tc-summary} (Section~\ref{sec:tc-robustness}). Results at the other risk budgets are reported in full in the per-metric grids included in \Cref{sec:results-0bps,sec:weights-turnover-0bps,sec:tc-robustness} and are referenced in-text where they materially change the interpretation.
+
+\medskip
+\noindent\textbf{What to look for in a frictionless setting:} 
+Before introducing transaction costs, it is useful to separate two questions: (i) whether rebalancing frequency changes performance mechanically through estimation-window length and how often the optimizer is ``allowed'' to react, and (ii) whether swapping the dispersion proxy inside the risk constraint materially changes outcomes once implementability constraints (long-only, max-weight cap, and an explicit cash sleeve) are imposed. The results below provide direct evidence on both dimensions and motivate why turnover will become the dominant channel once proportional costs are introduced.
+
+
+\subsection{Summary of frictionless results}
+
+Table~\ref{tab:summary-zero-cost} reports, for each strategy and rebalancing frequency, the realized outcome at the risk budget that maximizes terminal portfolio value (sorted by frequency, then strategy), together with realized risk, drawdown, and turnover. The corresponding full grids across all three risk budgets are reported in Tables~\ref{tab:app-terminal-pv-0}--\ref{tab:app-netpv-2} below.
+
+\begin{table}[H]
+  \centering
+  \caption{Performance summary at 0 bps transaction costs. For each strategy and rebalancing frequency, results are shown at the risk budget that maximizes terminal portfolio value. Turnover is the mean rebalance-to-rebalance sum of absolute \emph{non-cash} weight changes (cash sleeve excluded), which matches the transaction-cost model. CAGR/AnnVol is the explicit return-to-volatility ratio defined in Equation~\eqref{eq:cagr_annvol}, not the conventional Sharpe ratio. The drawdown column reports the \emph{worst within-period} maximum drawdown (negative values), measured inside each holding period and therefore evaluated over a window whose length equals the rebalancing interval of that row; values are comparable across strategies within a Frequency block but \emph{not} across blocks. The buy-and-hold benchmark is reported once per block on that same window basis, which is why its drawdown varies across blocks although its position never changes. Boundary-free full-sample drawdowns, which are comparable across every row, are reported in \Cref{tab:mdd-fullsample}.}
+  \label{tab:summary-zero-cost}
+  \resizebox{\textwidth}{!}{%
+\begin{tabular}{llrclcccc}
+\toprule
+Frequency & Strategy & Best Risk & Terminal PV & CAGR & Worst MDD & AnnVol & CAGR/AnnVol & Turnover \\
+\midrule
+\multirow{5}{*}{1 month} & S\&P BnH & 5.00\% & 469.37 & 6.15\% & $-$28.52 & 15.92 & 2.065 & 0.000 \\
+ & Volatility & 15.00\% & 356.16 & 5.02\% & $-$13.93 & 10.91 & 1.629 & 0.957 \\
+ & MAD & 15.00\% & 355.04 & 5.01\% & $-$13.22 & 11.02 & 1.650 & 0.966 \\
+ & IQR & 15.00\% & 424.31 & 5.74\% & $-$14.13 & 11.43 & 1.718 & 0.985 \\
+ & P95 & 15.00\% & 373.52 & 5.22\% & $-$14.21 & 11.35 & 1.671 & 0.983 \\
+ \midrule
+\multirow{5}{*}{3 months} & S\&P BnH & 5.00\% & 469.37 & 6.19\% & $-$35.19 & 16.60 & 1.188 & 0.000 \\
+ & Volatility & 15.00\% & 421.84 & 5.75\% & $-$36.68 & 12.53 & 1.118 & 0.899 \\
+ & MAD & 15.00\% & 423.62 & 5.77\% & $-$36.68 & 12.71 & 1.082 & 0.908 \\
+ & IQR & 15.00\% & 431.79 & 5.85\% & $-$36.68 & 13.27 & 1.107 & 0.936 \\
+ & P95 & 15.00\% & 461.37 & 6.12\% & $-$36.68 & 12.67 & 1.136 & 0.916 \\
+ \midrule
+\multirow{5}{*}{6 months} & S\&P BnH & 5.00\% & 469.37 & 6.25\% & $-$42.36 & 16.77 & 0.896 & 0.000 \\
+ & Volatility & 15.00\% & 651.55 & 7.63\% & $-$33.55 & 13.61 & 0.998 & 0.793 \\
+ & MAD & 15.00\% & 674.31 & 7.77\% & $-$33.55 & 14.12 & 0.984 & 0.812 \\
+ & IQR & 15.00\% & 755.58 & 8.25\% & $-$33.55 & 14.62 & 0.968 & 0.826 \\
+ & P95 & 15.00\% & 710.56 & 7.99\% & $-$33.55 & 13.94 & 1.018 & 0.817 \\
+ \midrule
+\multirow{5}{*}{annual} & S\&P BnH & 5.00\% & 469.37 & 6.38\% & $-$48.01 & 17.01 & 0.751 & 0.000 \\
+ & Volatility & 15.00\% & 423.67 & 5.94\% & $-$42.34 & 13.53 & 0.771 & 0.650 \\
+ & MAD & 15.00\% & 442.57 & 6.13\% & $-$44.71 & 14.05 & 0.782 & 0.714 \\
+ & IQR & 15.00\% & 464.51 & 6.33\% & $-$45.29 & 14.92 & 0.794 & 0.659 \\
+ & P95 & 10.00\% & 474.63 & 6.43\% & $-$31.75 & 10.48 & 0.863 & 0.579 \\
+\bottomrule
+\end{tabular}
+}
+\end{table}
+
+Three patterns stand out.
+\begin{itemize}
+	\item \textbf{Rebalancing frequency is first-order.} Across the optimized strategies, 6-month rebalancing often produces the strongest terminal wealth outcomes in this sample; monthly optimization performs materially worse in terminal wealth despite satisfying the same annualized risk-budget targets.
+	\item \textbf{Risk proxy choice is usually second-order, but not negligible.} At longer rebalance intervals (6 months and 1 year), the four risk proxies often produce comparable realized volatility and turnover, with performance differences that are modest relative to the effect of rebalancing frequency. As documented in Sections~\ref{sec:weights-turnover-0bps}--\ref{sec:tc-robustness}, IQR is a consistent partial exception: it realizes higher volatility and higher turnover than the other three proxies at the same nominal risk budget in nearly every cell of this grid. Its terminal-wealth advantage is narrower --- IQR leads under monthly and 6-month rebalancing, while P95 leads at the quarterly and annual horizons.
+	\item \textbf{Turnover is mechanically high for optimization.} Even at 0 bps, monthly optimization generates turnover near 1 per rebalance (sum of absolute \emph{non-cash} weight changes), which foreshadows substantial cost sensitivity once proportional frictions are introduced (\Cref{sec:tc-robustness}).
+\end{itemize}
+
+\noindent\textbf{Discussion.}
+The first two patterns indicate that, in this constrained sector-ETF universe, the choice of rebalancing schedule can dominate the choice of dispersion proxy in realized economic outcomes. In particular, intermediate rebalance intervals appear to strike a balance between (i) having enough data in each estimation window to reduce noise and (ii) updating weights often enough to react to changing return and covariance structure.
+The third pattern is the key mechanism for the cost analysis: frequent re-optimization generates frequent trading, so even small proportional costs can compound into meaningful drag.
+
+\Cref{fig:pv-zero-cost} plots the cumulative wealth paths behind these summary figures. To anchor magnitudes at a \emph{fixed} 10\% risk budget (rather than the best-of-three view in Table~\ref{tab:summary-zero-cost} above), the IQR strategy reaches a terminal portfolio value of 657.18 under 6-month rebalancing versus 371.10 under monthly rebalancing (with the S\&P benchmark at 469.37; these fixed-10\%-budget figures are reported in full in Table~\ref{tab:tc-summary}, Section~\ref{sec:tc-robustness}, at the 0 bps column). The corresponding turnover levels (reported in \Cref{tab:turnover-by-risk-zero-cost}) are substantially higher under monthly rebalancing.
+
+\begin{figure}[H]
+	\centering
+	\includegraphics[width=0.95\linewidth]{figures/pv_curves_zero_cost.png}
+	\caption{Gross portfolio value paths (0 bps transaction costs) at a 10\% annualized risk budget. Panels correspond to rebalancing schedules (1mo, 3mo, 6mo, 1y); each panel compares strategies on the same dollar scale.}
+	\label{fig:pv-zero-cost}
+\end{figure}
+
+\noindent\textbf{Practitioner takeaway.}
+Even before costs, the rebalance interval changes the effective signal-to-noise ratio of inputs (because the estimation window equals the holding period) and can dominate which strategy ``wins'' in terminal wealth.
+
+
+\subsection{Terminal wealth}
+
+Figure~\ref{fig:heatmap-pv-zero-cost} summarizes terminal wealth across all risk budgets and rebalancing schedules for each strategy.
+
+\begin{figure}[H]
+	\centering
+	\includegraphics[width=0.95\linewidth]{figures/heatmap_terminal_pv_zero_cost.png}
+	\caption{Terminal gross portfolio value heatmap (0 bps transaction costs). Each panel shows one strategy; axes represent annualized risk budgets (vertical) and rebalancing schedules (horizontal). Cell values indicate the terminal portfolio value in dollars.}
+	\label{fig:heatmap-pv-zero-cost}
+\end{figure}
+
+\noindent\textbf{Relative performance and patterns.}
+Two patterns stand out in \Cref{fig:heatmap-pv-zero-cost} and \Cref{tab:summary-zero-cost}. First, the dominant axis is \emph{rebalancing frequency}: for the optimized strategies, the 6-month schedule is often associated with the largest terminal wealth across risk budgets in this sample, though there are exceptions (e.g., some annual configurations under the P95 proxy). Monthly and quarterly optimization tend to underperform, even though they satisfy the same annualized risk-budget targets.
+Second, differences across dispersion proxies are present but typically smaller than the rebalance-interval effect. Within a fixed rebalance interval, the IQR-constrained strategy delivers the highest terminal wealth among the optimized variants at the monthly and 6-month horizons, while P95 leads at the quarterly and annual horizons; volatility and MAD are frequently close to one another. The P95 proxy is sometimes competitive at the annual rebalance horizon, suggesting that proxy choice can matter most when the optimizer is asked to make infrequent, larger allocation decisions.
+
+\noindent\textbf{Benchmark comparison.}
+The S\&P buy-and-hold benchmark provides a useful reality check: it is difficult for short-interval optimization (1mo/3mo) to overcome the combination of estimation noise and constrained implementation in this sector-ETF universe. Outperformance relative to the benchmark appears primarily in the 6-month configurations (and, more narrowly, in some annual configurations), reinforcing the practical idea that optimization benefits from longer windows and less frequent re-trading.
+
+\noindent\textbf{Practitioner takeaway.}
+If you are choosing between ``risk proxies'' inside a constrained optimizer, the heatmap suggests you should first choose a rebalance interval that is implementable and cost-aware; proxy choice is often a second-order tuning decision in this universe, though IQR specifically warrants monitoring realized (not just nominal) risk, as discussed further in Sections~\ref{sec:weights-turnover-0bps}--\ref{sec:tc-robustness}.
+
+
+\noindent The full terminal-wealth grid across all three risk budgets, rebalancing schedules, and strategies is reported in \Cref{tab:app-terminal-pv-0}.
+
+\begin{table}[H]
+  \centering
+  \caption{Terminal portfolio value (0 bps transaction costs) for all risk budgets and rebalancing schedules.}
+  \label{tab:app-terminal-pv-0}
+\begin{tabular}{lrccccc}
+\toprule
+\textbf{Frequency} & \textbf{Risk} & \textbf{S\&P BnH} & \textbf{Volatility} & \textbf{MAD}
+& \textbf{IQR} & \textbf{P95} \\
+\midrule
+\multirow{3}{*}{1 month} & 5.00\% & 469.37 & 208.20 & 211.29 & 283.60 & 240.86 \\
+ & 10.00\% & 469.37 & 317.62 & 313.00 & 371.10 & 329.21 \\
+ & 15.00\% & 469.37 & 356.16 & 355.04 & 424.31 & 373.52 \\
+ \midrule
+\multirow{3}{*}{3 months} 
+ & 5.00\% & 469.37 & 177.28 & 215.21 & 242.36 & 208.21 \\
+ & 10.00\% & 469.37 & 324.41 & 350.92 & 339.20 & 378.20 \\
+ & 15.00\% & 469.37 & 421.84 & 423.62 & 431.79 & 461.37 \\
+ \midrule
+\multirow{3}{*}{6 months} & 5.00\% & 469.37 & 258.42 & 257.82 & 327.73 & 253.12 \\
+ & 10.00\% & 469.37 & 440.76 & 512.07 & 657.18 & 458.35 \\
+ & 15.00\% & 469.37 & 651.55 & 674.31 & 755.58 & 710.56 \\
+ \midrule
+\multirow{3}{*}{annual} & 5.00\% & 469.37 & 233.99 & 229.70 & 215.09 & 217.00 \\
+ & 10.00\% & 469.37 & 378.06 & 409.51 & 389.81 & 474.63 \\
+ & 15.00\% & 469.37 & 423.67 & 442.57 & 464.51 & 421.28 \\
+\bottomrule
+\end{tabular}
+
+\end{table}
+
+\subsection{Drawdowns and downside risk}
+
+\Cref{tab:mdd-fullsample} reports full-sample maximum drawdowns---computed from the entire daily wealth path, independent of rebalance boundaries (Equation~\eqref{eq:mdd_full})---for every risk budget and rebalancing schedule. This is the basis for the drawdown comparisons drawn below, and \Cref{fig:heatmap-mdd-zero-cost} presents the same figures graphically. The corresponding within-period values are reported in \Cref{tab:summary-zero-cost} and \Cref{tab:app-mdd-0} for continuity with the period-level grids but, as set out in Section~3.8.3, are not comparable across rebalancing schedules.
+
+\begin{table}[H]
+  \centering
+  \caption{Full-sample maximum drawdown (percent) for all risk budgets and rebalancing schedules at 0 bps transaction costs. Computed from the running peak-to-trough decline of the entire daily wealth path (Equation~\eqref{eq:mdd_full}), independent of rebalance boundaries, and therefore comparable across every row of the table. Values are derived from the saved rebalance weights and daily asset returns; the reconstruction reproduces the build's stored within-period drawdowns exactly across all 5{,}928 strategy-periods, which validates it. The buy-and-hold benchmark records a single true drawdown of $-56.78\%$ (9 October 2007 to 9 March 2009) regardless of rebalancing schedule, as it must, since its position never changes; contrast the within-period figures in \Cref{tab:summary-zero-cost}, which vary from $-28.52\%$ to $-48.01\%$ for that same static position purely as a function of how the sample is partitioned.}
+  \label{tab:mdd-fullsample}
+\begin{tabular}{rlllccc}
+\toprule
+\textbf{Frequency} & \textbf{Risk} & \textbf{S\&P BnH} & \textbf{Volatility} & \textbf{MAD}
+& \textbf{IQR} & \textbf{P95} \\
+%Risk & Frequency & S\&P BnH & Volatility & MAD & IQR & P95 \\
+\midrule
+\multirow{4}{*}{5.00\%} & 1 month & $-$56.78 & $-$13.87 & $-$14.10 & $-$21.97 & $-$15.34 \\
+ & 3 months & $-$56.78 & $-$19.33 & $-$18.11 & $-$38.59 & $-$21.70 \\
+ & 6 months & $-$56.78 & $-$17.75 & $-$21.95 & $-$31.74 & $-$17.32 \\
+ & annual & $-$56.78 & $-$16.93 & $-$20.72 & $-$22.54 & $-$18.33 \\
+\midrule
+\multirow{4}{*}{10.00\%} & 1 month & $-$56.78 & $-$27.24 & $-$30.69 & $-$34.83 & $-$26.85 \\
+ & 3 months & $-$56.78 & $-$34.40 & $-$36.68 & $-$36.68 & $-$33.24 \\
+ & 6 months & $-$56.78 & $-$33.83 & $-$33.47 & $-$33.55 & $-$29.67 \\
+ & annual & $-$56.78 & $-$32.38 & $-$36.34 & $-$39.53 & $-$31.75 \\
+\midrule
+\multirow{4}{*}{15.00\%} & 1 month & $-$56.78 & $-$34.92 & $-$35.93 & $-$35.80 & $-$36.75 \\
+ & 3 mobths & $-$56.78 & $-$36.68 & $-$36.90 & $-$39.55 & $-$36.68 \\
+ & 6 months & $-$56.78 & $-$33.55 & $-$33.55 & $-$35.63 & $-$33.55 \\
+ & annual & $-$56.78 & $-$43.29 & $-$45.02 & $-$45.37 & $-$41.69 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{figure}[H]
+	\centering
+	\includegraphics[width=0.95\linewidth]{figures/heatmap_mdd_fullsample_zero_cost.png}
+	\caption{Full-sample maximum drawdown heatmap at 0 bps transaction costs. Each panel shows one strategy; axes represent risk budgets (vertical) and rebalancing schedules (horizontal). Cell values are full-sample drawdown \emph{magnitudes} in percent (larger values indicate deeper declines), computed from the entire daily wealth path and therefore comparable in both directions. The vertical gradient is pronounced---the risk budget is the dominant driver of drawdown---while the horizontal direction shows no consistent ordering, which is the visual form of the result discussed below. The buy-and-hold benchmark is omitted from the panels because its full-sample drawdown is a single value ($-56.78\%$) that does not vary along either axis; it is deeper than every cell shown here.}
+	\label{fig:heatmap-mdd-zero-cost}
+\end{figure}
+
+\noindent\textbf{The cross-schedule drawdown pattern is a measurement artifact.}
+On the within-period measure, drawdowns appear to grow sharply with the rebalancing interval. That pattern is a property of the measurement window rather than of the strategies: a longer holding period simply contains more of any peak-to-trough move, and the buy-and-hold benchmark---whose exposure never changes---exhibits the same apparent pattern ($-28.52\%$, $-35.19\%$, $-42.36\%$, $-48.01\%$ in \Cref{tab:summary-zero-cost}) purely as a function of how the sample is cut. On the boundary-free measure the pattern largely disappears. At the 15\% budget, full-sample drawdowns run from $-34.9\%$ to $-36.8\%$ at the monthly schedule, $-36.7\%$ to $-39.6\%$ at quarterly, $-33.6\%$ to $-35.6\%$ at semiannual, and $-41.7\%$ to $-45.4\%$ at annual. These ranges overlap substantially and do not order monotonically in the rebalancing interval. The gap between the two measures is largest at the monthly schedule, where the within-period figures ($-13.2\%$ to $-14.2\%$) describe only the worst single month while the deepest decline actually realized is at least $-34.9\%$ for every proxy; a monthly reset cannot see a drawdown that runs for years. Rebalancing more often did not deliver materially shallower drawdowns in this sample. This does not weaken the paper's central claim, which rests on terminal wealth, turnover, and net-of-cost outcomes; it does establish that drawdown is not one of the dimensions along which the rebalancing decision separates.
+
+\medskip
+\noindent\textbf{Relative to the benchmark.}
+Every constrained configuration reduced the worst realized decline substantially relative to buy-and-hold. The S\&P~500 fell $-56.78\%$ from 9 October 2007 to 9 March 2009, against $-13.9\%$ to $-45.4\%$ for the optimized portfolios across all risk budgets and rebalancing schedules. That reduction is attributable to the risk budget and the cash sleeve---both common to all four proxies---rather than to the choice of dispersion measure.
+
+\medskip
+\noindent\textbf{Across dispersion proxies.}
+Within a given risk budget and rebalancing schedule the spread across the four proxies is modest and the ordering is not stable. IQR posts the deepest drawdown in nine of the twelve (risk, frequency) cells and ties for deepest in a tenth, which is consistent with the calibration discussion in Section~3.6: its looser effective budget under fat-tailed returns shows up as deeper drawdowns as well as higher realized volatility. Overall, swapping volatility for MAD, IQR, or P95 dispersion does not systematically \emph{reduce} tail losses within this constrained implementation (long-only, max-weight cap, and an explicit cash sleeve).
+
+\medskip
+\noindent\textbf{Why several drawdowns are identical across proxies.}
+A number of configurations report drawdowns that agree to the cent: all four proxies record $-36.68$ at the quarterly schedule and $-33.55$ at the semiannual schedule in \Cref{tab:summary-zero-cost}. This is not a reporting artifact but a direct consequence of the constrained design. The dispersion constraints in Equations~\eqref{eq:vol_constraint}, \eqref{eq:mad_constraint}, \eqref{eq:iqr_constraint}, and \eqref{eq:p95_constraint} are inequalities. When a constraint is slack, the corresponding program reduces to maximizing $\YRev{\hat{\boldsymbol{\mu}}^\top \mathbf{w}}$ subject only to $\sum_i w_i = 1$ and the box $0 \leq w_i \leq w_{\max}$---a linear program whose solution places weight at the cap on the highest-mean assets and does not depend on which dispersion measure was written into the constraint. In sufficiently calm estimation windows the constraint is slack for every proxy and all four portfolios coincide exactly. At the 15\% budget this occurs in 58\% of monthly periods, 51\% of quarterly periods, 46\% of semiannual periods, and 35\% of annual periods; the corresponding figures at the 10\% budget are 24\%, 15\%, 8\%, and 4\%. The quarterly and semiannual drawdown ties are such cases: the weights held through the first quarter of 2020 were set from the calm fourth quarter of 2019, no proxy's constraint bound, and all four portfolios held an identical capped allocation into the COVID-19 selloff. Because \Cref{tab:summary-zero-cost} selects the 15\% budget in fifteen of its sixteen optimized rows, a substantial share of that table sits in this degenerate regime. This mechanism is itself evidence for the paper's central claim: where the risk budget does not bind, the choice of risk proxy cannot matter at all, and the outcome is determined entirely by the feasible set and the rebalancing schedule.
+
+\medskip
+\noindent Table~\ref{tab:app-mdd-0} reports the worst within-period maximum drawdown for every risk budget and rebalancing schedule; as above, these values are comparable across strategies and risk budgets at a fixed schedule, but not across schedules.
+
+\begin{table}[H]
+  \centering
+  \caption{Worst within-period maximum drawdown (percent) for all risk budgets and rebalancing schedules at 0 bps transaction costs. Values are the deepest decline observed inside a single holding period; because the holding period equals the rebalancing interval, this measure is not comparable across rebalancing schedules.}
+  \label{tab:app-mdd-0}
+\begin{tabular}{lrllccc}
+\toprule
+\textbf{Frequency} & \textbf{Risk} & \textbf{S\&P BnH} & \textbf{Volatility} & \textbf{MAD}
+& \textbf{IQR} & \textbf{P95} \\
+\midrule
+\multirow{3}{*}{1 month} & 5.00\% & $-$28.52 & $-$10.56 & $-$10.84 & $-$10.71 & $-$10.85 \\
+ & 10.00\% & $-$28.52 & $-$11.08 & $-$10.99 & $-$14.13 & $-$12.21 \\
+ & 15.00\% & $-$28.52 & $-$13.93 & $-$13.22 & $-$14.13 & $-$14.21 \\
+ \midrule
+\multirow{3}{*}{3 months} & 5.00\% & $-$35.19 & $-$18.20 & $-$17.93 & $-$35.11 & $-$17.76 \\
+ & 10.00\% & $-$35.19 & $-$34.40 & $-$36.68 & $-$36.68 & $-$33.24 \\
+ & 15.00\% & $-$35.19 & $-$36.68 & $-$36.68 & $-$36.68 & $-$36.68 \\
+ \midrule
+\multirow{3}{*}{6 months} & 5.00\% & $-$42.36 & $-$17.75 & $-$21.95 & $-$31.74 & $-$17.32 \\
+ & 10.00\% & $-$42.36 & $-$33.83 & $-$33.47 & $-$33.55 & $-$29.67 \\
+ & 15.00\% & $-$42.36 & $-$33.55 & $-$33.55 & $-$33.55 & $-$33.55 \\
+ \midrule
+\multirow{3}{*}{annual} & 5.00\% & $-$48.01 & $-$16.93 & $-$20.72 & $-$20.48 & $-$18.33 \\
+ & 10.00\% & $-$48.01 & $-$32.38 & $-$36.34 & $-$37.28 & $-$31.75 \\
+ & 15.00\% & $-$48.01 & $-$42.34 & $-$44.71 & $-$45.29 & $-$40.45 \\
+\bottomrule
+\end{tabular}
+
+\end{table}
+
+\subsection{Realized risk and risk-adjusted performance}
+To keep the main text streamlined, it focuses on realized annualized volatility and a return-to-volatility ratio (CAGR/AnnVol, with $r_f=0$), both reported alongside performance in \Cref{tab:summary-zero-cost}. Alternative proxy-specific return-to-risk ratios and the related diagnostic grids are reported in full below.
+
+\noindent\textbf{Relative performance and patterns.}
+Two consistency checks are useful when interpreting the performance grids. First, realized dispersion generally increases with the stated risk budget across all strategies, indicating that the annual-to-daily scaling and proxy-to-proxy calibration produce broadly sensible monotonic behavior in realized risk. Second, across the four optimized strategies, realized risk levels are often quite similar within a (risk, frequency) cell, as expected given that all optimizers face the same implementation constraints and target dispersion budgets on the same underlying daily-return data --- with the notable exception of IQR, which realizes consistently higher volatility than the other three proxies at the same nominal target (\Cref{tab:summary-zero-cost}), a pattern consistent with the normal-approximation calibration binding more loosely for IQR under fat-tailed returns (Section~3.6).
+
+In terms of risk-adjusted performance, differences across proxies are present but not uniform across rebalance intervals. Higher realized volatility does not by itself explain higher terminal wealth: the ordering of configurations by terminal wealth is driven primarily by rebalance interval, not by realized dispersion. Within a fixed interval, however, IQR is a systematic exception --- it carries both the highest realized volatility and, at the monthly and 6-month horizons, the highest terminal wealth, which is why its apparent advantage is better read as looser realized risk-taking than as a superior risk concept. This reinforces the paper's central theme: in a constrained, implementable setting, the \emph{interaction} between estimation window length and rebalance frequency can dominate the incremental choice of dispersion proxy, though IQR's elevated realized risk is a specific, explainable exception worth tracking rather than averaging away.
+
+
+\noindent The complete per-metric grids underlying these statements are reported in \Cref{tab:app-vol-0,tab:app-mad-0,tab:app-iqr-0,tab:app-sharpe-0,tab:app-sharpe-mad-0,tab:app-sharpe-iqr-0,tab:app-rar-vol-0,tab:app-rar-mad-0,tab:app-rar-iqr-0}: realized dispersion under each of the three proxies, and both the conventional and proxy-specific return-to-risk ratios, for every risk budget and rebalancing schedule.
+
+\begin{table}[H]
+  \centering
+  \caption{Mean realized annualized volatility (percent) over time for all risk budgets and rebalancing schedules at 0 bps transaction costs.}
+  \label{tab:app-vol-0}
+\begin{tabular}{lrcrrrr}
+\toprule
+\textbf{Frequency} & \textbf{Risk} & \textbf{S\&P BnH} & \textbf{Volatility} & \textbf{MAD}
+& \textbf{IQR} & \textbf{P95} \\
+\midrule
+\multirow{3}{*}{1 month} & 5.00\% & 15.92 & 5.27 & 5.57 & 7.57 & 6.20 \\
+ & 10.00\% & 15.92 & 9.11 & 9.40 & 10.30 & 9.89 \\
+ & 15.00\% & 15.92 & 10.91 & 11.02 & 11.43 & 11.35 \\
+ \midrule
+\multirow{3}{*}{3 months} & 5.00\% & 16.60 & 5.53 & 5.69 & 7.35 & 5.97 \\
+ & 10.00\% & 16.60 & 10.18 & 10.58 & 11.72 & 10.72 \\
+ & 15.00\% & 16.60 & 12.53 & 12.71 & 13.27 & 12.67 \\
+ \midrule
+\multirow{3}{*}{6 months} & 5.00\% & 16.77 & 5.61 & 5.99 & 6.90 & 5.74 \\
+ & 10.00\% & 16.77 & 10.88 & 11.35 & 12.20 & 10.90 \\
+ & 15.00\% & 16.77 & 13.61 & 14.12 & 14.62 & 13.94 \\
+ \midrule
+\multirow{3}{*}{annual} & 5.00\% & 17.01 & 5.54 & 5.88 & 6.64 & 5.57 \\
+ & 10.00\% & 17.01 & 10.66 & 11.21 & 12.24 & 10.48 \\
+ & 15.00\% & 17.01 & 13.53 & 14.05 & 14.92 & 13.54 \\
+\bottomrule
+\end{tabular}
+
+\end{table}
+
+\begin{table}[H]
+  \centering
+  \caption{Mean realized annualized MAD (percent) over time for all risk budgets and rebalancing schedules at 0 bps transaction costs.}
+  \label{tab:app-mad-0}
+\begin{tabular}{lrcrrrr}
+\toprule
+\textbf{Frequency} & \textbf{Risk} & \textbf{S\&P BnH} & \textbf{Volatility} & \textbf{MAD}
+& \textbf{IQR} & \textbf{P95} \\
+\midrule
+\multirow{3}{*}{1 month} & 5.00\% & 12.56 & 4.17 & 4.41 & 5.98 & 4.88 \\
+ & 10.00\% & 12.56 & 7.19 & 7.44 & 8.14 & 7.82 \\
+ & 15.00\% & 12.56 & 8.64 & 8.73 & 9.05 & 8.98 \\
+ \midrule
+\multirow{3}{*}{3 months} & 5.00\% & 12.61 & 4.19 & 4.31 & 5.55 & 4.51 \\
+ & 10.00\% & 12.61 & 7.72 & 8.03 & 8.90 & 8.16 \\
+ & 15.00\% & 12.61 & 9.55 & 9.68 & 10.11 & 9.67 \\
+ \midrule
+\multirow{3}{*}{6 months} & 5.00\% & 12.50 & 4.21 & 4.50 & 5.14 & 4.31 \\
+ & 10.00\% & 12.50 & 8.14 & 8.48 & 9.15 & 8.15 \\
+ & 15.00\% & 12.50 & 10.18 & 10.59 & 10.97 & 10.43 \\
+ \midrule
+\multirow{3}{*}{annual} & 5.00\% & 12.26 & 4.03 & 4.26 & 4.76 & 4.05 \\
+ & 10.00\% & 12.26 & 7.68 & 8.10 & 8.80 & 7.55 \\
+ & 15.00\% & 12.26 & 9.78 & 10.17 & 10.79 & 9.79 \\
+\bottomrule
+\end{tabular}
+
+\end{table}
+
+\begin{table}[H]
+  \centering
+  \caption{Mean realized annualized IQR (percent) over time for all risk budgets and rebalancing schedules at 0 bps transaction costs.}
+  \label{tab:app-iqr-0}
+\begin{tabular}{lrcrrrr}
+\toprule
+\textbf{Frequency} & \textbf{Risk} & \textbf{S\&P BnH} & \textbf{Volatility} & \textbf{MAD}
+& \textbf{IQR} & \textbf{P95} \\
+\midrule
+\multirow{3}{*}{1 month} & 5.00\% & 19.48 & 6.51 & 6.91 & 9.34 & 7.52 \\
+ & 10.00\% & 19.48 & 11.14 & 11.61 & 12.62 & 12.15 \\
+ & 15.00\% & 19.48 & 13.45 & 13.63 & 14.08 & 13.97 \\
+ \midrule
+\multirow{3}{*}{3 months} & 5.00\% & 19.03 & 6.30 & 6.52 & 8.35 & 6.79 \\
+ & 10.00\% & 19.03 & 11.69 & 12.19 & 13.44 & 12.40 \\
+ & 15.00\% & 19.03 & 14.56 & 14.80 & 15.34 & 14.84 \\
+ \midrule
+\multirow{3}{*}{6 months} & 5.00\% & 18.56 & 6.41 & 6.87 & 7.80 & 6.48 \\
+ & 10.00\% & 18.56 & 12.38 & 12.85 & 13.93 & 12.37 \\
+ & 15.00\% & 18.56 & 15.55 & 16.16 & 16.86 & 16.02 \\
+ \midrule
+\multirow{3}{*}{annual} & 5.00\% & 17.60 & 5.96 & 6.31 & 6.87 & 5.96 \\
+ & 10.00\% & 17.60 & 11.28 & 11.96 & 12.82 & 11.03 \\
+ & 15.00\% & 17.60 & 14.40 & 14.86 & 15.77 & 14.39 \\
+\bottomrule
+\end{tabular}
+
+\end{table}
+
+\begin{table}[H]
+  \centering
+  \caption{Terminal Sharpe ratio values for all risk budgets and rebalancing schedules at 0 bps transaction costs.}
+  \label{tab:app-sharpe-0}
+\begin{tabular}{lrcrrrr}
+\toprule
+\textbf{Frequency} & \textbf{Risk} & \textbf{S\&P BnH} & \textbf{Volatility} & \textbf{MAD}
+& \textbf{IQR} & \textbf{P95} \\
+\midrule
+\multirow{3}{*}{1 month} & 5.00\% & 1.02 & $-$2.03 & $-$1.83 & $-$0.15 & $-$1.24 \\
+ & 10.00\% & 1.02 & $-$0.03 & $-$0.18 & $-$0.44 & 0.50 \\
+ & 15.00\% & 1.02 & 0.50 & 0.50 & 0.50 & 0.50 \\
+ \midrule
+\multirow{3}{*}{3 months} & 5.00\% & 1.04 & 0.84 & 0.87 & 1.13 & 0.51 \\
+ & 10.00\% & 1.04 & 0.76 & 0.76 & 0.76 & 0.76 \\
+ & 15.00\% & 1.04 & 0.76 & 0.76 & 0.76 & 0.76 \\
+ \midrule
+\multirow{3}{*}{6 months} & 5.00\% & 2.19 & 0.20 & 0.77 & 1.63 & 0.50 \\
+ & 10.00\% & 2.19 & 1.06 & 1.51 & 1.56 & 0.98 \\
+ & 15.00\% & 2.19 & 1.48 & 1.89 & 1.69 & 1.86 \\
+ \midrule
+\multirow{3}{*}{annual} & 5.00\% & 0.92 & 0.85 & 0.73 & 1.05 & 0.97 \\
+& 10.00\% & 0.92 & 0.92 & 0.95 & 0.94 & 1.01 \\
+ & 15.00\% & 0.92 & 0.94 & 0.94 & 0.94 & 0.94 \\
+\bottomrule
+\end{tabular}
+
+\end{table}
+
+\begin{table}[H]
+  \centering
+  \caption{Mean Sharpe$_{\mathrm{MAD}}$ over time for all risk budgets and rebalancing schedules at 0 bps transaction costs.}
+  \label{tab:app-sharpe-mad-0}
+\begin{tabular}{lrcrrrr}
+\toprule
+\textbf{Frequency} & \textbf{Risk} & \textbf{S\&P BnH} & \textbf{Volatility} & \textbf{MAD}
+& \textbf{IQR} & \textbf{P95} \\
+\midrule
+\multirow{3}{*}{1 month} & 5.00\% & 2.666 & 1.625 & 1.673 & 1.902 & 1.708 \\
+ & 10.00\% & 2.666 & 1.939 & 1.928 & 2.031 & 1.937 \\
+ & 15.00\% & 2.666 & 2.076 & 2.102 & 2.192 & 2.135 \\
+ \midrule
+\multirow{3}{*}{3 months} & 5.00\% & 1.580 & 1.141 & 1.239 & 1.313 & 1.283 \\
+ & 10.00\% & 1.580 & 1.439 & 1.486 & 1.398 & 1.518 \\
+ & 15.00\% & 1.580 & 1.453 & 1.408 & 1.440 & 1.481 \\
+ \midrule
+\multirow{3}{*}{6 months} & 5.00\% & 1.208 & 1.261 & 1.255 & 1.334 & 1.308 \\
+ & 10.00\% & 1.208 & 1.262 & 1.293 & 1.300 & 1.261 \\
+ & 15.00\% & 1.208 & 1.313 & 1.299 & 1.276 & 1.342 \\
+ \midrule
+\multirow{3}{*}{annual} & 5.00\% & 1.030 & 1.042 & 1.036 & 0.959 & 0.987 \\
+ & 10.00\% & 1.030 & 1.099 & 1.120 & 1.047 & 1.159 \\
+ & 15.00\% & 1.030 & 1.034 & 1.048 & 1.067 & 1.052 \\
+\bottomrule
+\end{tabular}
+
+\end{table}
+
+\begin{table}[H]
+  \centering
+  \caption{Mean Sharpe$_{\mathrm{IQR}}$ over time for all risk budgets and rebalancing schedules at 0 bps transaction costs.}
+  \label{tab:app-sharpe-iqr-0}
+\begin{tabular}{lrcrrrr}
+\toprule
+\textbf{Frequency} & \textbf{Risk} & \textbf{S\&P BnH} & \textbf{Volatility} & \textbf{MAD}
+& \textbf{IQR} & \textbf{P95} \\
+\midrule
+\multirow{3}{*}{1 month} & 5.00\% & 1.896 & 1.121 & 1.167 & 1.284 & 1.179 \\
+ & 10.00\% & 1.896 & 1.362 & 1.359 & 1.413 & 1.331 \\
+ & 15.00\% & 1.896 & 1.432 & 1.447 & 1.514 & 1.478 \\
+ \midrule
+\multirow{3}{*}{3 months} & 5.00\% & 1.121 & 0.773 & 0.832 & 0.849 & 0.849 \\
+ & 10.00\% & 1.121 & 0.945 & 0.990 & 0.939 & 1.011 \\
+ & 15.00\% & 1.121 & 0.969 & 0.941 & 0.969 & 0.985 \\
+ \midrule
+\multirow{3}{*}{6 months} & 5.00\% & 0.820 & 0.813 & 0.826 & 0.897 & 0.881 \\
+ & 10.00\% & 0.820 & 0.836 & 0.858 & 0.869 & 0.841 \\
+ & 15.00\% & 0.820 & 0.867 & 0.860 & 0.842 & 0.881 \\
+ \midrule
+\multirow{3}{*}{annual} & 5.00\% & 0.710 & 0.675 & 0.687 & 0.645 & 0.648 \\
+ & 10.00\% & 0.710 & 0.726 & 0.749 & 0.693 & 0.783 \\
+ & 15.00\% & 0.710 & 0.685 & 0.692 & 0.707 & 0.697 \\
+\bottomrule
+\end{tabular}
+
+\end{table}
+
+\begin{table}[H]
+  \centering
+  \caption{Mean risk-adjusted return (volatility-based, percent) over time for all risk budgets and rebalancing schedules at 0 bps transaction costs.}
+  \label{tab:app-rar-vol-0}
+\begin{tabular}{lrcrrrr}
+\toprule
+\textbf{Frequency} & \textbf{Risk} & \textbf{S\&P BnH} & \textbf{Volatility} & \textbf{MAD}
+& \textbf{IQR} & \textbf{P95} \\
+\midrule
+\multirow{3}{*}{1 month} & 5.00\% & 1.645 & 1.350 & 1.379 & 1.485 & 1.371 \\
+ & 10.00\% & 1.645 & 1.395 & 1.361 & 1.404 & 1.360 \\
+ & 15.00\% & 1.645 & 1.427 & 1.430 & 1.474 & 1.443 \\
+ \midrule
+\multirow{3}{*}{3 months} & 5.00\% & 3.793 & 3.218 & 3.478 & 3.642 & 3.624 \\
+ & 10.00\% & 3.793 & 3.854 & 3.957 & 3.668 & 4.040 \\
+ & 15.00\% & 3.793 & 3.760 & 3.610 & 3.666 & 3.812 \\
+ \midrule
+\multirow{3}{*}{6 months} & 5.00\% & 6.497 & 7.411 & 7.348 & 7.733 & 7.666 \\
+ & 10.00\% & 6.497 & 7.178 & 7.354 & 7.386 & 7.192 \\
+ & 15.00\% & 6.497 & 7.467 & 7.333 & 7.186 & 7.614 \\
+ \midrule
+\multirow{3}{*}{annual} & 5.00\% & 11.924 & 12.471 & 12.394 & 11.209 & 11.783 \\
+& 10.00\% & 11.924 & 12.954 & 13.249 & 12.339 & 13.703 \\
+& 15.00\% & 11.924 & 12.242 & 12.422 & 12.597 & 12.447 \\
+\bottomrule
+\end{tabular}
+
+\end{table}
+
+\begin{table}[H]
+  \centering
+  \caption{Mean risk-adjusted return (MAD-based, percent) over time for all risk budgets and rebalancing schedules at 0 bps transaction costs.}
+  \label{tab:app-rar-mad-0}
+\begin{tabular}{lrcrrrr}
+\toprule
+\textbf{Frequency} & \textbf{Risk} & \textbf{S\&P BnH} & \textbf{Volatility} & \textbf{MAD}
+& \textbf{IQR} & \textbf{P95} \\
+\midrule
+\multirow{3}{*}{1 month} & 5.00\% & 2.143 & 1.710 & 1.749 & 1.901 & 1.734 \\
+ & 10.00\% & 2.143 & 1.786 & 1.758 & 1.792 & 1.733 \\
+ & 15.00\% & 2.143 & 1.819 & 1.822 & 1.882 & 1.844 \\
+ \midrule
+\multirow{3}{*}{3 months} & 5.00\% & 5.055 & 4.155 & 4.531 & 4.719 & 4.709 \\
+ & 10.00\% & 5.055 & 4.992 & 5.130 & 4.774 & 5.260 \\
+ & 15.00\% & 5.055 & 4.876 & 4.685 & 4.755 & 4.968 \\
+ \midrule
+\multirow{3}{*}{6 months} & 5.00\% & 8.763 & 9.737 & 9.667 & 10.239 & 10.099 \\
+ & 10.00\% & 8.763 & 9.523 & 9.746 & 9.765 & 9.517 \\
+ & 15.00\% & 8.763 & 9.820 & 9.677 & 9.465 & 10.030 \\
+ \midrule
+\multirow{3}{*}{annual} & 5.00\% & 16.357 & 16.541 & 16.450 & 15.221 & 15.665 \\
+& 10.00\% & 16.357 & 17.445 & 17.779 & 16.628 & 18.400 \\
+& 15.00\% & 16.357 & 16.421 & 16.636 & 16.941 & 16.707 \\
+\bottomrule
+\end{tabular}
+
+\end{table}
+
+\begin{table}[H]
+  \centering
+  \caption{Mean risk-adjusted return (IQR-based, percent) over time for all risk budgets and rebalancing schedules at 0 bps transaction costs.}
+  \label{tab:app-rar-iqr-0}
+\begin{tabular}{lrcrrrr}
+\toprule
+\textbf{Frequency} & \textbf{Risk} & \textbf{S\&P BnH} & \textbf{Volatility} & \textbf{MAD}
+& \textbf{IQR} & \textbf{P95} \\
+\midrule
+\multirow{3}{*}{1 month} & 5.00\% & 1.555 & 1.187 & 1.234 & 1.287 & 1.197 \\
+ & 10.00\% & 1.555 & 1.265 & 1.250 & 1.254 & 1.193 \\
+ & 15.00\% & 1.555 & 1.258 & 1.258 & 1.301 & 1.279 \\
+ \midrule
+\multirow{3}{*}{3 months} & 5.00\% & 3.613 & 2.815 & 3.040 & 3.034 & 3.110 \\
+ & 10.00\% & 3.613 & 3.270 & 3.414 & 3.206 & 3.502 \\
+ & 15.00\% & 3.613 & 3.242 & 3.125 & 3.197 & 3.304 \\
+ \midrule
+\multirow{3}{*}{6 months} & 5.00\% & 5.954 & 6.278 & 6.364 & 6.883 & 6.800 \\
+ & 10.00\% & 5.954 & 6.304 & 6.465 & 6.531 & 6.341 \\
+ & 15.00\% & 5.954 & 6.481 & 6.399 & 6.238 & 6.582 \\
+\midrule
+\multirow{3}{*}{annual} & 5.00\% & 11.271 & 10.717 & 10.906 & 10.235 & 10.288 \\
+ & 10.00\% & 11.271 & 11.519 & 11.890 & 11.006 & 12.434 \\
+ & 15.00\% & 11.271 & 10.882 & 10.988 & 11.224 & 11.059 \\
+\bottomrule
+\end{tabular}
+
+\end{table}
+
+\noindent The results above summarize \emph{performance} at 0 bps. The discussion next turns to the \emph{portfolio mechanics} behind these outcomes---weight paths and turnover---because these will be the primary channel through which proportional transaction costs affect net performance (\Cref{sec:weights-turnover-0bps,sec:tc-robustness}).
+
+\section{Portfolio Weights and Turnover (0 bps)}
+\label{sec:weights-turnover-0bps}
+This section focuses on weight distributions and turnover across rebalancing frequencies and strategies.
+These allocation dynamics provide the foundation for the transaction cost analysis in \Cref{sec:tc-robustness}.
+
+\medskip
+\noindent\textbf{Evidence and interpretation.}
+If proportional transaction costs scale with turnover, then weight dynamics are not merely descriptive: they determine the economic viability of a strategy. This section documents two empirically visible mechanisms.
+First, turnover falls mechanically as the rebalancing interval increases, because weights are adjusted less frequently. Second, differences across risk proxies tend to appear through cash usage and concentration patterns rather than through completely different sector exposures --- though, as detailed below, IQR is a partial exception on the turnover dimension specifically.
+
+Beyond these headlines, two additional points are important for interpretation. First, ``low turnover'' does not necessarily mean ``small trades'': lower-frequency portfolios often exhibit \emph{lumpier} reallocations (larger step changes at each rebalance) even if average turnover per rebalance is lower. Second, because estimation windows are defined as the immediately prior holding period, higher-frequency portfolios operate with shorter samples and can therefore exhibit more parameter noise, which mechanically increases trading as inputs fluctuate.
+
+\subsection{Turnover across frequencies and strategies}
+\Cref{tab:turnover-by-risk-zero-cost} reports turnover (mean rebalance-to-rebalance sum of absolute weight changes) across risk budgets and rebalancing schedules at 0 bps. The 10\% risk budget is highlighted as a representative ``medium'' case in the discussion below.
+
+Turnover is computed as the rebalance-to-rebalance sum of absolute \emph{non-cash} weight changes (i.e., $\tau_k=\sum_{i\in\mathcal{S}} |w_{k,i}-w_{k-1,i}|$), consistent with the transaction-cost model in \Cref{sec:tc-robustness}. This treats the cash sleeve as a funding source/sink with no direct trading fee.
+
+\medskip
+\noindent\textbf{Discussion.}
+The monotone decline in turnover from 1-month to 1-year rebalancing provides a direct mechanism for why higher-frequency strategies can lag once proportional costs are introduced: the same cost rate is applied to a larger cumulative traded notional when turnover is persistently high (\Cref{tab:turnover-by-risk-zero-cost,fig:cost-drag,tab:tc-summary}).
+
+\noindent Two patterns in \Cref{tab:turnover-by-risk-zero-cost} are especially relevant for the cost analysis.
+First, \emph{frequency dominates}: even when turnover per rebalance is only modestly higher at 1-month than at 1-year, there are many more trading dates. A simple back-of-the-envelope annualized ``turnover intensity'' is $m\,\bar{\tau}$, where $m\in\{12,4,2,1\}$ is the number of rebalances per year and $\bar{\tau}$ is mean turnover per rebalance. At 10\% risk, the volatility strategy has $\bar{\tau}\approx 0.858$ at monthly rebalancing but $\bar{\tau}\approx 0.517$ at annual rebalancing; this implies roughly $12\times 0.858\approx 10.3$ turnover units per year versus $1\times 0.517\approx 0.5$ turnover units per year --- a roughly 20-fold relative difference. In absolute terms this translates into only about 0.10\% versus 0.005\% of annual cost drag at a 1 bps proportional cost rate (rising to roughly 0.21\% versus 0.01\% at the 2 bps rate used elsewhere in this paper); both figures are individually small, and it is the relative multiplier, not the absolute drag at the lowest cost tier, that constitutes the mechanism illustrated here.
+
+Second, \emph{risk budget matters more at short rebalance intervals}. At monthly rebalancing, allowing higher risk budgets leads to noticeably higher turnover (e.g., volatility: 0.586 at 5\% vs 0.858 at 10\% vs 0.957 at 15\%, a spread of 0.371). At annual rebalancing, the same cross-risk spread is smaller (e.g., volatility: 0.405 at 5\% vs 0.517 at 10\% vs 0.650 at 15\%, a spread of 0.245), suggesting that infrequent trading naturally limits how aggressively the optimizer can reposition.
+
+\paragraph{IQR turnover is systematically higher, not merely comparable.} Across nearly every cell of \Cref{tab:turnover-by-risk-zero-cost}, IQR has the highest turnover among the four dispersion proxies, at times by a substantial relative margin --- for example, at 5\%/6mo, IQR turnover is 0.593 versus Volatility's 0.388 (roughly 53\% higher); at 5\%/1mo, IQR is 0.765 versus Volatility's 0.586 (roughly 30\% higher). This pattern is consistent with the calibration observation in Section~3.6: IQR also realizes higher volatility than the other three proxies at the same nominal risk budget, consistent with a systematically looser realized constraint for IQR under the normal-approximation calibration. A proxy operating under a looser realized budget would be expected to both take more risk and trade more to do so, which is exactly the joint pattern observed here. Section~\ref{sec:tc-robustness} tests directly whether this elevated turnover translates into a correspondingly larger transaction-cost penalty for IQR.
+
+\begin{table}[H]
+  \centering
+  \caption{Mean rebalance-to-rebalance sum of absolute \emph{non-cash} weight changes (turnover proxy; cash sleeve excluded) at 0 bps transaction costs, reported across risk budgets and rebalancing frequencies. The mean is taken over rebalance dates after the initial allocation, and the measure is target-to-target: it compares the weights chosen at successive rebalance dates. \YRev{Because target proportions are held constant within a holding period (\Cref{sec:impl-details}), this measure charges only the re-optimization trade and not the within-period rebalancing implied by holding those proportions fixed (see \Cref{sec:limitations}).} This is the sole turnover measure used in this paper and it matches the transaction-cost model of \Cref{sec:tc-robustness}.}
+  \label{tab:turnover-by-risk-zero-cost}
+\begin{tabular}{llccccc}
+\toprule
+\textbf{Risk} & \textbf{Frequency} & S\textbf{\&P BnH} & \textbf{Volatility} & \textbf{MAD} & \textbf{IQR} & \textbf{P95} \\
+\midrule
+\multirow{4}{*}{5.00\%} & 1 month & 0.000 & 0.586 & 0.614 & 0.765 & 0.665 \\
+ & 3 months & 0.000 & 0.498 & 0.517 & 0.621 & 0.564 \\
+ & 6 months & 0.000 & 0.388 & 0.470 & 0.593 & 0.483 \\
+ & annual & 0.000 & 0.405 & 0.380 & 0.587 & 0.397 \\
+ \midrule
+\multirow{4}{*}{10.00\%} & 1 month & 0.000 & 0.858 & 0.884 & 0.930 & 0.910 \\
+& 3 months & 0.000 & 0.784 & 0.809 & 0.868 & 0.824 \\
+ & 6 months & 0.000 & 0.686 & 0.683 & 0.749 & 0.675 \\
+ & annual & 0.000 & 0.517 & 0.547 & 0.614 & 0.579 \\
+\midrule
+\multirow{4}{*}{15.00\%} & 1 month & 0.000 & 0.957 & 0.966 & 0.985 & 0.983 \\
+ & 3 months & 0.000 & 0.899 & 0.908 & 0.936 & 0.916 \\
+ & 6 months & 0.000 & 0.793 & 0.812 & 0.826 & 0.817 \\
+ & annual & 0.000 & 0.650 & 0.714 & 0.659 & 0.654 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\noindent\textbf{Practitioner takeaway.}
+Turnover is not just a diagnostic --- it is an input to net performance. A strategy that looks competitive at 0 bps can become unattractive once turnover is multiplied by a realistic trading-cost assumption, and this appears especially relevant for proxies, such as IQR, that combine higher frictionless returns with higher turnover.
+
+
+
+
+\subsection{Weight distributions through time (10\% risk budget)}
+To isolate how the choice of dispersion proxy affects portfolio composition at a fixed risk budget, \Cref{fig:weights-area-strategy-10} plots sector and cash weights over time for each strategy at a 10\% risk budget (0 bps, monthly rebalancing).
+
+\noindent\textbf{Discussion.}
+Across strategies, the implementability constraints and the presence of a cash sleeve visibly limit extreme concentration, so the most salient differences tend to arise in (i) how aggressively the optimizer uses cash to satisfy the risk budget and (ii) how concentrated the sector mix becomes during particular regimes.
+In economic terms, the cash sleeve acts as the optimizer's ``risk dial'': when the estimated dispersion of risky assets rises, the optimizer can satisfy the risk budget by shifting weight into cash rather than by forcing extreme sector shorts (which are disallowed). This generates a natural interpretation of proxy differences.
+If a proxy treats a given episode as ``riskier'' (because of tail observations or a wider dispersion estimate), the optimizer tends to lean more heavily on cash and reduces active sector tilts; if a proxy is less sensitive, it tends to remain more fully invested and expresses risk through a larger risky allocation.
+
+The figures also emphasize a practical point about implementability: the portfolios rotate across sectors over time, but the rotations are smooth and bounded by the cap constraint. As a result, much of the cross-strategy variation is in \emph{how much} active risk is taken (cash usage and concentration) rather than \emph{which} sectors are held.
+
+\begin{figure}[H]
+\begin{tabular}{cc}
+\includegraphics[width=0.45\textwidth]{figures/weights_area_volatility_risk10.png} &
+\includegraphics[width=0.45\textwidth]{figures/weights_area_mad_risk10.png} \\
+(a) Volatility & (b) MAD \\[4pt]
+\includegraphics[width=0.45\textwidth]{figures/weights_area_iqr_risk10.png} &
+\includegraphics[width=0.45\textwidth]{figures/weights_area_95_risk10.png} \\
+(c) IQR & (d) P95 \\
+\end{tabular}
+\caption{Sector and cash weights through time by strategy at a 10\% risk budget (0 bps, monthly rebalancing).}
+	\label{fig:weights-area-strategy-10}
+\end{figure}
+
+\subsection{Rebalance-interval allocation dynamics (stacked weight areas)}
+To visualize how rebalancing frequency shapes the allocation path directly, the paper plots stacked area charts of \emph{sector plus cash} weights through time (each panel corresponds to a rebalance interval; areas sum to 100\%).
+
+\noindent\textbf{Discussion.}
+The stacked-area panels illustrate that longer rebalance intervals tend to produce smoother weight paths between rebalances, but also more discrete step changes at rebalance dates. This matters for costs because proportional turnover models effectively charge for \emph{total traded notional} rather than for ``smoothness'' per se.
+
+Two economic interpretations follow. First, higher-frequency strategies are exposed to \emph{estimation noise} because they recalibrate on shorter samples, which can create churn even when the true opportunity set is stable. Second, lower-frequency strategies amortize estimation error over longer holds: they trade less often, but each trade can be larger because more drift accumulates between rebalances. In this sample, the rebalancing count appears to be the dominant driver of the gap in cumulative turnover intensity and therefore cost drag (\Cref{tab:turnover-by-risk-zero-cost,fig:cost-drag}).
+
+Taken together, the weight-path figures (\Cref{fig:weights-area-tenure-1mo-10,fig:weights-area-tenure-3mo-10,fig:weights-area-tenure-6mo-10,fig:weights-area-tenure-1y-10}) provide a visual bridge between the frictionless performance section and the transaction cost section: turnover and weight instability are the conduits through which costs impact terminal wealth. In this sample, these conduits are primarily controlled by the rebalance schedule, with IQR as a partial exception on the proxy dimension given its consistently elevated turnover documented above.
+
+\begin{figure}[H]
+	\centering
+	\includegraphics[width=0.92\linewidth]{figures/weights_area_tenure_1mo_risk10.png}
+	\caption{Rebalance interval = 1 month: sector and cash weights (sum to 100\%) over time by strategy at a 10\% annualized risk budget (0 bps).}
+	\label{fig:weights-area-tenure-1mo-10}
+\end{figure}
+
+\begin{figure}[H]
+	\centering
+	\includegraphics[width=0.92\linewidth]{figures/weights_area_tenure_3mo_risk10.png}
+	\caption{Rebalance interval = 3 months: sector and cash weights (sum to 100\%) over time by strategy at a 10\% annualized risk budget (0 bps).}
+	\label{fig:weights-area-tenure-3mo-10}
+\end{figure}
+
+\begin{figure}[H]
+	\centering
+	\includegraphics[width=0.92\linewidth]{figures/weights_area_tenure_6mo_risk10.png}
+	\caption{Rebalance interval = 6 months: sector and cash weights (sum to 100\%) over time by strategy at a 10\% annualized risk budget (0 bps).}
+	\label{fig:weights-area-tenure-6mo-10}
+\end{figure}
+
+\begin{figure}[H]
+	\centering
+	\includegraphics[width=0.92\linewidth]{figures/weights_area_tenure_1y_risk10.png}
+	\caption{Rebalance interval = 1 year: sector and cash weights (sum to 100\%) over time by strategy at a 10\% annualized risk budget (0 bps).}
+	\label{fig:weights-area-tenure-1y-10}
+\end{figure}
+
+\section{Robustness: Transaction Costs}
+\label{sec:tc-robustness}
+This section tests whether the frictionless ranking persists under proportional transaction costs that penalize turnover.
+Because proportional costs are driven by trading volume, the turnover patterns documented in \Cref{sec:weights-turnover-0bps} provide the mechanism linking rebalancing frequency to net performance.
+
+The transaction cost model used here is deliberately simple and transparent: a proportional haircut applied to turnover at each rebalance. This stylized structure isolates the economic channel (turnover) while abstracting from implementation details such as time-varying spreads, nonlinear market impact, and optimal execution. The section concludes with a discussion of how results would change under more refined cost structures.
+
+\subsection{Economic viability under proportional costs}
+\Cref{fig:cost-drag,tab:tc-summary} evaluate net terminal wealth under transaction cost rates of 0, 1, and 2 \textbf{basis points (bps)} applied proportionally to turnover. These levels are intended to represent a low-friction ETF implementation environment (spreads/fees/slippage aggregated into a simple proportional cost) while still highlighting the mechanical link between turnover and cost drag.
+
+\medskip\noindent
+\textbf{Turnover measurement and one-way vs two-way costs:} 
+Recall from \Cref{sec:impl-details} that turnover is measured as the sum of absolute weight changes in \emph{risky assets} (sector ETFs), treating the cash sleeve as a costless funding source:
+\begin{equation*}
+	\tau_k = \sum_{i\in \mathcal{S}} \lvert w_{k,i} - w_{k-1,i} \rvert.
+\end{equation*}
+This corresponds to charging a one-way cost on risky-asset trades: if the portfolio moves \$1 from cash into a sector ETF, it incurs a cost proportional to \$1; if it simultaneously moves \$1 out of another sector ETF into cash, that also incurs a cost proportional to \$1. The total charged turnover for such a rebalance is \$2 (one-way cost on each risky leg), not \$1.
+
+In a setting without cash (or where cash is fixed at zero), the long-only and fully-invested constraints imply that buys and sells in risky assets match in aggregate, so the traditional ``one-way turnover'' is $\tfrac{1}{2}\tau_k$. With an active cash sleeve, however, net flows into or out of risky assets need not sum to zero at each rebalance, and $\tau_k$ directly reflects the total notional traded in risky assets.
+
+The proportional haircut at rebalance $k$ is
+\begin{equation*}
+	\mathrm{Cost}_k = c\,\tau_k\,V_{k^-},
+\end{equation*}
+where $c\in\{0,1,2\}$ bps is the cost rate and $V_{k^-}$ is portfolio value immediately before rebalancing. Holding-period returns are then earned on the post-cost value $V_k = V_{k^-} - \mathrm{Cost}_k$.
+
+\medskip\noindent
+\textbf{Interpretation and magnitudes:} 
+These rates are deliberately low, and that is the direction that favors the actively traded strategies rather than the benchmark: a smaller cost rate understates the penalty borne by high-turnover configurations. Because $\tau_k$ charges each risky leg separately, a 1 bps rate per unit of turnover corresponds to roughly 2 bps per round trip, which is a defensible all-in figure for large sector ETFs once quoted spreads, timing costs, and slippage relative to the rebalance signal are aggregated. The 1--2 bps range should therefore be read as a low-friction implementation scenario rather than as a conservative bound; a higher-cost tier would widen, not narrow, the gap between the frequent- and infrequent-rebalancing configurations.
+
+The dominant driver of performance under costs is turnover. Strategies that rebalance more frequently and generate larger weight changes incur larger cumulative trading haircuts. In contrast, the buy-and-hold benchmark is comparatively insensitive because turnover is near zero. At lower rebalancing frequencies (6 months and 1 year), optimized strategies generally remain viable, but the ranking can still shift once costs are applied because small differences in turnover compound over long horizons.
+
+\noindent For ease of comparison, the benchmark's net terminal value is invariant to the transaction-cost rate (it does not trade) and is therefore repeated across the frequency panels in \Cref{tab:tc-summary}.
+
+Cost drag is smaller at 6-month/1-year horizons because (i) there are fewer rebalances and (ii) turnover per rebalance is typically lower, so cumulative traded notional is smaller. To anchor magnitudes, consider the back-of-the-envelope calculation from \Cref{sec:weights-turnover-0bps}: at a 10\% risk budget, monthly volatility optimization has annualized turnover intensity near $12 \times 0.858 \approx 10.3$, implying roughly 10 bps of cost drag per year under a 1 bps rate (before compounding), consistent with the $-5.21\%$ cumulative drag observed for 1mo/Volatility at the 2 bps rate in \Cref{tab:tc-summary}. Over a multi-decade horizon, this compounds into a material wealth difference.
+
+\medskip\noindent
+\textbf{IQR bears a consistently larger relative cost penalty, not a comparable one:} Table~\ref{tab:tc-summary}'s ``Drag at 2 bps'' column shows that IQR has the largest percentage drag of the four optimized strategies at \emph{every} rebalancing frequency: $-5.64\%$ at 1mo (vs.\ $-5.21\%$ for Volatility, $-5.37\%$ for MAD, $-5.52\%$ for P95); $-1.79\%$ at 3mo; $-0.78\%$ at 6mo; and $-0.32\%$ at 1y. This directly confirms the turnover pattern documented in Section~\ref{sec:weights-turnover-0bps}: IQR is the highest-turnover proxy in nearly every (risk, frequency) cell of \Cref{tab:turnover-by-risk-zero-cost}, and that elevated turnover translates directly into elevated relative cost drag once proportional costs are applied. The differential is economically modest in absolute terms (between 0.05 and 0.43 percentage points of additional relative drag, depending on frequency) and is not large enough, in this sample, to overturn IQR's frictionless terminal-wealth advantage --- IQR remains the top-performing optimized strategy at the 6-month horizon even after 2 bps of costs (\$652.08 vs.\ the next-best MAD at \$508.46). The more precise statement of the negative result is therefore: swapping the risk proxy does not deliver a turnover or cost \emph{advantage} in this implementation --- if anything, the proxy that produces the highest frictionless terminal wealth (IQR) also produces the highest turnover and the largest relative cost penalty, though not large enough here to change the ranking.
+
+
+\noindent \Cref{tab:app-netpv-1,tab:app-netpv-2} report net terminal portfolio value at the 1 bp and 2 bps cost rates across every risk budget and rebalancing schedule; the 0 bps column of \Cref{tab:app-terminal-pv-0} is the corresponding frictionless baseline.
+
+\begin{table}[H]
+  \centering
+  \caption{Net terminal portfolio value at 1 bp transaction costs for all risk budgets and rebalancing schedules.}
+  \label{tab:app-netpv-1}
+\begin{tabular}{lrccccc}
+\toprule
+\textbf{Risk} & \textbf{Frequency} & S\textbf{\&P BnH} & \textbf{Volatility} & \textbf{MAD} & \textbf{IQR} & \textbf{P95} \\
+%Frequency & Risk & S\&P BnH & Volatility & MAD & IQR & P95 \\
+\midrule
+\multirow{3}{*}{1 month} & 5.00\% & 469.37 & 204.43 & 207.29 & 276.90 & 235.91 \\
+ & 10.00\% & 469.37 & 309.23 & 304.48 & 360.48 & 320.00 \\
+ & 15.00\% & 469.37 & 345.68 & 344.49 & 411.47 & 362.24 \\
+ \midrule
+\multirow{3}{*}{3 months} & 5.00\% & 469.37 & 176.37 & 214.06 & 240.81 & 206.99 \\
+ & 10.00\% & 469.37 & 321.77 & 347.99 & 336.15 & 374.98 \\
+ & 15.00\% & 469.37 & 417.91 & 419.64 & 427.60 & 456.99 \\
+ \midrule
+\multirow{3}{*}{6 months} & 5.00\% & 469.37 & 257.90 & 257.20 & 326.73 & 252.49 \\
+ & 10.00\% & 469.37 & 439.19 & 510.26 & 654.63 & 456.75 \\
+ & 15.00\% & 469.37 & 648.86 & 671.46 & 752.33 & 707.54 \\
+ \midrule
+\multirow{3}{*}{annual} & 5.00\% & 469.37 & 233.74 & 229.48 & 214.77 & 216.78 \\
+ & 10.00\% & 469.37 & 377.55 & 408.92 & 389.18 & 473.91 \\
+ & 15.00\% & 469.37 & 422.95 & 441.74 & 463.70 & 420.55 \\
+\bottomrule
+\end{tabular}
+
+\end{table}
+
+\begin{table}[H]
+  \centering
+  \caption{Net terminal portfolio value at 2 bps transaction costs for all risk budgets and rebalancing schedules.}
+  \label{tab:app-netpv-2}
+\begin{tabular}{lrccccc}
+\toprule
+\textbf{Risk} & \textbf{Frequency} & S\textbf{\&P BnH} & \textbf{Volatility} & \textbf{MAD} & \textbf{IQR} & \textbf{P95} \\
+% Frequency & Risk & S\&P BnH & Volatility & MAD & IQR & P95 \\
+\midrule
+\multirow{3}{*}{1 month} & 5.00\% & 469.37 & 200.72 & 203.36 & 270.36 & 231.07 \\
+ & 10.00\% & 469.37 & 301.07 & 296.20 & 350.17 & 311.04 \\
+ & 15.00\% & 469.37 & 335.50 & 334.26 & 399.02 & 351.29 \\
+ \midrule
+\multirow{3}{*}{3 months} & 5.00\% & 469.37 & 175.46 & 212.92 & 239.26 & 205.79 \\
+ & 10.00\% & 469.37 & 319.16 & 345.08 & 333.13 & 371.78 \\
+ & 15.00\% & 469.37 & 414.02 & 415.69 & 423.45 & 452.66 \\
+ \midrule
+\multirow{3}{*}{6 months} & 5.00\% & 469.37 & 257.39 & 256.58 & 325.74 & 251.86 \\
+ & 10.00\% & 469.37 & 437.63 & 508.46 & 652.08 & 455.15 \\
+ & 15.00\% & 469.37 & 646.18 & 668.63 & 749.09 & 704.53 \\
+ \midrule
+\multirow{3}{*}{annual} & 5.00\% & 469.37 & 233.50 & 229.26 & 214.45 & 216.56 \\
+& 10.00\% & 469.37 & 377.04 & 408.34 & 388.56 & 473.19 \\
+& 15.00\% & 469.37 & 422.22 & 440.92 & 462.89 & 419.83 \\
+\bottomrule
+\end{tabular}
+
+\end{table}
+
+% ---------------------------------------------------------------------------
+% WITHHELD: tables/appendix_net_pv_tc0.tex -- its data rows are byte-identical to
+% appendix_terminal_pv_zero_cost.tex (already printed above as Table
+% \ref{tab:app-terminal-pv-0}). Printing both would duplicate a full grid under
+% two different labels. Uncomment only if a separate 0 bps label is wanted.
+\begin{comment}
+\begin{table}[H]
+  \centering
+  \caption{Net terminal portfolio value at 0 bps transaction costs for all risk budgets and rebalancing schedules.}
+  \label{tab:app-netpv-0}
+\begin{tabular}{lllllll}
+\toprule
+Frequency & Risk & S\&P BnH & Volatility & MAD & IQR & P95 \\
+\midrule
+1mo & 5.00\% & 469.37 & 208.20 & 211.29 & 283.60 & 240.86 \\
+1mo & 10.00\% & 469.37 & 317.62 & 313.00 & 371.10 & 329.21 \\
+1mo & 15.00\% & 469.37 & 356.16 & 355.04 & 424.31 & 373.52 \\
+3mo & 5.00\% & 469.37 & 177.28 & 215.21 & 242.36 & 208.21 \\
+3mo & 10.00\% & 469.37 & 324.41 & 350.92 & 339.20 & 378.20 \\
+3mo & 15.00\% & 469.37 & 421.84 & 423.62 & 431.79 & 461.37 \\
+6mo & 5.00\% & 469.37 & 258.42 & 257.82 & 327.73 & 253.12 \\
+6mo & 10.00\% & 469.37 & 440.76 & 512.07 & 657.18 & 458.35 \\
+6mo & 15.00\% & 469.37 & 651.55 & 674.31 & 755.58 & 710.56 \\
+1y & 5.00\% & 469.37 & 233.99 & 229.70 & 215.09 & 217.00 \\
+1y & 10.00\% & 469.37 & 378.06 & 409.51 & 389.81 & 474.63 \\
+1y & 15.00\% & 469.37 & 423.67 & 442.57 & 464.51 & 421.28 \\
+\bottomrule
+\end{tabular}
+
+\end{table}
+\end{comment}
+
+\subsection{Alternative cost structures and extensions}
+The proportional cost model used in this analysis is a first-order approximation. Several extensions would provide a more realistic representation of trading frictions, though at the cost of additional complexity.
+
+\medskip\noindent
+\textbf{Nonlinear market impact:} 
+A well-established result in market microstructure is that price impact grows nonlinearly with trade size \citep{almgrenchriss2001,Kyle1985}. In a simplified permanent-impact model, executing a trade of size $Q$ in an asset with daily volume $V$ incurs an impact proportional to $(Q/V)^\alpha$ for some $\alpha \in (0.5, 1)$, often calibrated near 0.5--0.6 for equities. For the liquid sector ETFs in this study, impact is likely negligible at modest rebalance sizes, but large reallocations (e.g., moving 10--20\% of portfolio value into a single ETF in a single day) could incur measurable impact.
+
+If impact were modeled, the main qualitative result---that turnover drives cost drag---would persist, but the penalty for high-turnover strategies would be amplified because large discrete trades (which occur more frequently at short rebalance intervals) would be disproportionately expensive. This would further favor lower-frequency rebalancing, and would likely widen, rather than narrow, IQR's cost disadvantage documented above, since IQR is both the highest-turnover proxy and the one most associated with larger reallocations.
+
+\medskip\noindent
+\textbf{Time-varying spreads and volatility-dependent costs:} 
+Spreads widen during stress periods and contract during calm markets. A more refined model could make $c$ time-varying, linked to measures of market liquidity or realized volatility. This would penalize rebalancing during crises (when dispersion estimates are noisiest and spreads are widest) and could interact with the risk-proxy choice: if robust proxies reduce the frequency of ``panic reallocations,'' they might deliver a secondary benefit through lower realized execution costs.
+
+\medskip\noindent
+\textbf{Optimal execution and temporary impact:} 
+The current model assumes trades execute instantaneously at a fixed cost. In practice, large orders are split over time to minimize the temporary impact, creating a trade-off between urgency and cost \citep{almgrenchriss2001}. Incorporating optimal execution would require specifying a within-rebalance trading horizon (e.g., trade over 1--2 days after the signal), which would smooth the realized cost but also introduce timing risk.
+
+\medskip\noindent
+\textbf{Turnover penalties and no-trade regions:} 
+A direct way to mitigate turnover is to add an explicit turnover penalty to the objective or to impose no-trade bands that prevent rebalancing unless weight drift exceeds a threshold. These approaches are standard in practice and can materially reduce trading intensity \citep{garleanupedersen2013}. The current analysis does not implement such mechanisms, but the turnover diagnostics in \Cref{tab:turnover-by-risk-zero-cost} provide a baseline against which turnover-penalized variants could be compared. Given IQR's elevated turnover documented above, it is plausibly the strategy with the most to gain from such a mechanism, though confirming this is left to future work.
+
+\medskip\noindent
+\textbf{Implications for robust proxies:} 
+If nonlinear impact or time-varying costs were introduced, the relative ranking of risk proxies could shift further if one proxy systematically avoids large trades during high-cost regimes. Based on the turnover and cost-drag patterns already observed in this implementation (\Cref{tab:turnover-by-risk-zero-cost,tab:tc-summary}), such a shift would plausibly work \emph{against} IQR rather than in its favor, since IQR is already the highest-turnover, highest-relative-drag proxy under the simple linear cost model used here.
+
+\begin{figure}[H]
+	\centering
+	\includegraphics[width=0.95\linewidth]{figures/cost_drag_curves.png}
+	\caption{Transaction cost drag at a 10\% annualized risk budget. Terminal net portfolio value plotted against proportional transaction cost rate (0, 1, 2 bps) for each strategy; panels correspond to rebalancing schedules (1mo, 3mo, 6mo, 1y).}
+	\label{fig:cost-drag}
+\end{figure}
+
+\noindent\textbf{Practitioner takeaway.}
+In this implementation, the cost curve is largely a turnover curve: reducing rebalance frequency (and/or explicitly penalizing turnover) is a more direct lever for improving net outcomes than swapping among closely related dispersion measures. Among the dispersion measures themselves, IQR's higher frictionless returns come paired with a consistently higher cost sensitivity; in this sample the former outweighs the latter, but the margin of that trade-off narrows as trading frictions are assumed to be more severe.
+
+\begin{table}[H]
+  \centering
+  \caption{Net terminal portfolio value under proportional transaction costs at 10\% risk budget. Net PV values are from \texttt{Transaction Cost.xlsx}. Drag at 2\% shows the percentage change in terminal value relative to 0\% costs.}
+  \label{tab:tc-summary}
+       \resizebox{\textwidth}{!}{%  
+\begin{tabular}{llcccc}
+\toprule
+\textbf{Frequency} & \textbf{Strategy} & \textbf{Net PV (0\%)} & \textbf{Net PV (1\%)} & \textbf{Net PV (2\%)} & \textbf{Drag at 2\% }\\
+\midrule
+\multirow{5}{*}{1 month} & S\&P BnH & 469.37 & 469.37 & 469.37 & 0.00\% \\
+ & Volatility & 317.62 & 309.23 & 301.07 & -5.21\% \\
+ & MAD & 313.00 & 304.48 & 296.20 & -5.37\% \\
+ & IQR & 371.10 & 360.48 & 350.17 & -5.64\% \\
+ & P95 & 329.21 & 320.00 & 311.04 & -5.52\% \\
+ \midrule
+\multirow{5}{*}{3 months} & S\&P BnH & 469.37 & 469.37 & 469.37 & 0.00\% \\
+ & Volatility & 324.41 & 321.77 & 319.16 & -1.62\% \\
+ & MAD & 350.92 & 347.99 & 345.08 & -1.67\% \\
+ & IQR & 339.20 & 336.15 & 333.13 & -1.79\% \\
+ & P95 & 378.20 & 374.98 & 371.78 & -1.70\% \\
+ \midrule
+\multirow{3}{*}{6 months} & S\&P BnH & 469.37 & 469.37 & 469.37 & 0.00\% \\
+ & Volatility & 440.76 & 439.19 & 437.63 & -0.71\% \\
+ & MAD & 512.07 & 510.26 & 508.46 & -0.71\% \\
+ & IQR & 657.18 & 654.63 & 652.08 & -0.78\% \\
+ & P95 & 458.35 & 456.75 & 455.15 & -0.70\% \\
+ \midrule
+\multirow{3}{*}{annual} & S\&P BnH & 469.37 & 469.37 & 469.37 & 0.00\% \\
+ & Volatility & 378.06 & 377.55 & 377.04 & -0.27\% \\
+ & MAD & 409.51 & 408.92 & 408.34 & -0.29\% \\
+ & IQR & 389.81 & 389.18 & 388.56 & -0.32\% \\
+ & P95 & 474.63 & 473.91 & 473.19 & -0.30\% \\
+\bottomrule
+\end{tabular}
+}
+\end{table}
+
+\subsection{Robustness to realized cash yields}
+\label{sec:cash-robustness}
+\YRev{The baseline design in \Cref{sec:impl-details} models the cash sleeve as a zero-return instrument, and Section~\ref{sec:limitations} flagged this as a limitation given that realized short-term rates varied substantially over 1999--2025. This subsection replaces that qualitative caveat with a direct empirical test: the full optimization grid is rerun with the cash sleeve earning the actual realized return on 3-month U.S. Treasury bills rather than zero, and the resulting terminal wealth is compared to the zero-cash baseline.
+
+\textbf{Construction of the realized cash-return series.} Daily cash returns are constructed from the monthly 3-Month Treasury Bill Secondary Market Rate, Discount Basis (FRED series TB3MS; Board of Governors of the Federal Reserve System (US), retrieved from FRED, Federal Reserve Bank of St. Louis, \url{https://fred.stlouisfed.org/series/TB3MS}, accessed 3 September 2026). Each calendar month's annualized rate is converted to a daily simple return via $r_{\mathrm{CSH},t} = (\text{TB3MS}_{m(t)}/100)/252$, where $m(t)$ is the calendar month containing day $t$ and 252 is the same trading-day annualization convention used throughout this paper (Equation~\eqref{eq:daily_scaling}). This is a simplification --- it ignores the discount-basis day-count convention and assumes the rate is constant within a month --- but it is transparent, reproducible from public data, and directly comparable to the zero-cash baseline since only the $\mathrm{CSH}$ column of the return panel changes. Over the sample, this construction implies a mean annualized cash return of approximately 2.0\%, reflecting the mix of the near-zero-rate years (2009--2015, 2020--2021) and the higher-rate years (2000, 2006--2007, 2023--2024) noted in Section~\ref{sec:impl-details}.
+
+\textbf{Results.} \Cref{tab:cash-robustness} reports terminal portfolio value at the fixed 10\% annualized risk budget (0 bps transaction costs) under both cash assumptions, for all four rebalancing schedules and four optimized strategies.
+
+\begin{table}[H]
+  \centering
+  \caption{\YRev{Terminal portfolio value at a fixed 10\% annualized risk budget (0 bps transaction costs) under the zero-cash baseline versus the realized-T-bill-yield cash sleeve. \%$\Delta$ is the percentage change in terminal value moving from zero-cash to realized cash.}}
+  \label{tab:cash-robustness}
+\begin{tabular}{llrrr}
+\toprule
+\textbf{Frequency} & \textbf{Strategy} & \textbf{Zero Cash} & \textbf{Realized Cash} & \textbf{\%$\Delta$} \\
+\midrule
+\multirow{4}{*}{1 month} & Volatility & 317.62 & 370.28 & +16.58\% \\
+ & MAD & 313.01 & 357.91 & +14.35\% \\
+ & IQR & 370.82 & 422.27 & +13.87\% \\
+ & P95 & 329.21 & 371.99 & +13.00\% \\
+ \midrule
+\multirow{4}{*}{3 months} & Volatility & 324.41 & 353.64 & +9.01\% \\
+ & MAD & 350.92 & 379.74 & +8.21\% \\
+ & IQR & 339.20 & 384.76 & +13.43\% \\
+ & P95 & 378.20 & 418.96 & +10.78\% \\
+ \midrule
+\multirow{4}{*}{6 months} & Volatility & 440.76 & 481.98 & +9.35\% \\
+ & MAD & 512.07 & 575.65 & +12.42\% \\
+ & IQR & 657.18 & 728.50 & +10.85\% \\
+ & P95 & 458.35 & 538.42 & +17.47\% \\
+ \midrule
+\multirow{4}{*}{annual} & Volatility & 378.06 & 425.83 & +12.64\% \\
+ & MAD & 409.51 & 425.73 & +3.96\% \\
+ & IQR & 389.81 & 529.37 & +35.80\% \\
+ & P95 & 474.63 & 458.76 & $-$3.34\% \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\noindent\textbf{Interpretation.} Three findings emerge. First, replacing the zero-return cash assumption with realized T-bill yields raises terminal wealth for 15 of the 16 (frequency, strategy) cells in \Cref{tab:cash-robustness}, by amounts ranging from about 4\% to 36\%; the flat-zero assumption in the baseline design was, as anticipated, conservative rather than favorable to any particular strategy. The single exception (P95 at the annual horizon, $-3.34\%$) arises because P95's specific allocation path happens to hold less cash than the other proxies during some of the highest-yielding sub-periods at that rebalancing frequency; it is a path-dependent outcome of the sample rather than a systematic pattern.
+
+Second, and most importantly for this paper's central claim, \emph{the ranking of rebalancing schedules is unchanged}: under realized cash yields, 6-month rebalancing remains the strongest-performing schedule for \YRev{all four proxies}, matching the zero-cash finding in \Cref{tab:summary-zero-cost}. \YRev{The two spreads are, however, of comparable magnitude and overlap. Measured on \Cref{tab:cash-robustness}, the spread across rebalancing schedules within a proxy runs from \$123 (volatility) to \$318 (IQR) under zero cash, and from \$128 to \$344 under realized cash; the spread across proxies within a schedule runs from \$54 to \$216 under zero cash, and from \$64 to \$247 under realized cash. The frequency effect is the larger of the two at most cells, but not at the 6-month horizon, where the proxy spread (\$216 zero-cash, \$247 realized-cash) exceeds the frequency spread for the volatility proxy (\$123 and \$128). Hypothesis~1 is therefore unaffected \emph{in direction} by the cash assumption --- the ranking of schedules is unchanged --- but the realized-cash results do not strengthen it into a uniform dominance claim, consistent with the qualification already recorded in \Cref{sec:discussion} and with the interval estimates in \Cref{sec:stat-significance}.}
+
+Third, the ranking \emph{among} proxies shifts modestly at some horizons: under zero cash, P95 posted the strongest annual-horizon terminal wealth (\Cref{tab:summary-zero-cost}), but under realized cash yields IQR moves ahead at the annual horizon as well (529.37 vs.\ 458.76), driven by the disproportionate 35.80\% uplift IQR receives from realized cash income at that frequency. This reinforces the paper's broader point that the specific ranking among robust dispersion proxies is sensitive to implementation details --- cash treatment among them --- even though the dominance of rebalancing frequency over proxy choice is not.}
+
+\section{Discussion}
+\label{sec:discussion}
+This study highlights a practical hierarchy for portfolio construction in a constrained, implementable optimizer. The empirical results are best interpreted not as a ``horse race'' among dispersion formulas, but as evidence about which 
+\emph{design levers} matter most in a realistic workflow that repeatedly (i) estimates inputs from finite windows, (ii) solves a constrained optimization problem, and (iii) trades to targets under costs.
+
+Three high-level takeaways summarize the discussion.
+\begin{enumerate}
+	\item \textbf{Constraints and estimation windows are first-order.} Long-only, fully-invested portfolios with position limits can materially stabilize optimization \citep{jagannathanma2003}. In this setting, the estimation-window design (here: ``previous holding period'') and rebalance frequency jointly determine how noisy inputs are and how often the optimizer is allowed to react, and these effects can dominate incremental changes in the dispersion proxy.
+	\item \textbf{Risk-proxy mappings are useful but imperfect.} Calibrating MAD/IQR/P95 budgets to an annualized ``risk target'' relies on distributional approximations (here: normal multiples). When returns are non-normal or time-varying, different proxies can bind in different regimes, so cross-proxy comparisons should be read as comparisons of \emph{implementations} rather than as statements of dominance of one risk concept over another. As documented in Sections~\ref{sec:results-0bps}--\ref{sec:tc-robustness}, this is not merely a theoretical caveat: IQR realizes systematically higher volatility, higher turnover, and higher relative transaction-cost drag than the other three proxies at the same nominal risk budget, consistent with its normal-approximation-implied constraint binding more loosely than intended under fat-tailed daily returns.
+	\item \textbf{Turnover is the primary channel for costs.} The transaction-cost robustness analysis reinforces the classic point that active policies must be evaluated net of trading frictions \citep{French2008}. In these sector-ETF optimizations, frequent re-optimization mechanically increases traded notional, and even 1--2 bps can compound into economically meaningful drag.
+\end{enumerate}
+
+\subsection{Why proxy differences compress --- but do not fully disappear --- under constraints}
+In unconstrained settings, volatility and robust dispersion measures can imply meaningfully different optimal solutions because the constraint set can ``tilt'' the optimizer away from tail-sensitive estimates. In this paper's constrained setting, several mechanisms compress those differences, though they do not eliminate a consistent, if economically modest, IQR-specific pattern.
+\begin{itemize}
+	\item \textbf{The cash sleeve acts as a shared risk valve.} Because cash is available and earns a deterministic 0 return, every proxy can satisfy its risk budget by adjusting the \emph{risky share} (sector ETFs) versus cash. If one proxy estimates an episode as riskier, the optimizer can respond by increasing cash rather than by producing extreme offsetting sector positions (which are disallowed). This induces a common pattern: proxy differences show up primarily in cash usage and concentration intensity.
+	\item \textbf{The max-weight cap prevents ``error-maximizing'' concentration.} A cap such as $w_{\max}=25\%$ limits the optimizer's ability to express small input differences via extreme positions. As a result, distinct dispersion constraints can lead to similar feasible corner solutions, especially at longer horizons where input estimates are less noisy.
+	\item \textbf{The objective is mean return with noisy estimates.} Because $\YRev{\hat{\boldsymbol{\mu}}}$ is estimated from short, rolling daily windows (equal to the holding period), the optimization is often driven by estimation noise in $\YRev{\hat{\boldsymbol{\mu}}}$ subject to a binding risk constraint. Under this structure, changing the risk proxy can shift which constraint binds and how much cash is used, but it does not necessarily create a persistent ``alpha'' mechanism.
+	\item \textbf{The normal-approximation calibration is an imperfect equalizer.} The mechanisms above compress differences \emph{conditional on} each proxy's constraint being calibrated to an equivalent effective risk level. Because that calibration relies on a normal approximation (Section~3.6), it does not guarantee equal realized risk-taking across proxies when daily returns are fat-tailed. This is the most likely explanation for why IQR, specifically, consistently realizes more risk, more turnover, and a larger relative cost penalty than the other three proxies, even though the compression mechanisms above hold for all four.
+\end{itemize}
+
+\subsection{Design choices vs. empirical findings}
+Two experimental design choices drive much of the cross-frequency behavior.
+First, the estimation window equals the immediately prior holding period, so higher-frequency strategies use shorter samples to estimate inputs. This makes both $\YRev{\hat{\boldsymbol{\mu}}}$ and dispersion estimates more variable, increasing the probability of frequent reallocations.
+Second, identical implementability constraints apply to all proxies (long-only, full investment, a sector-only cap, and an explicit cash sleeve), which intentionally isolates the effect of changing the dispersion proxy but also tends to push solutions toward similar feasible allocations.
+
+An implication is that the paper's ``rebalance frequency dominates'' finding should be read as a joint statement about (i) rebalance frequency and (ii) the specific information set induced by the estimation window (see also Section~3.7.3). Alternative window choices (e.g., a fixed-length trailing window independent of holding period) could change the frequency comparison by decoupling ``how often you trade'' from ``how much data you estimate with.''
+
+\subsection{Regime dependence and economic interpretation}
+While the paper does not run a formal subperiod attribution, the largest shifts in allocations and turnover occur in well-known stress episodes (e.g., the early-2000s drawdown, the 2008--09 crisis, and 2020). In such regimes, robust proxies can dampen the influence of a handful of extreme daily observations inside the dispersion constraint, which tends to translate into higher cash allocations and (in some cases) less aggressive sector rotation.
+
+However, in this constrained sector-ETF setting, the dominant driver of net outcomes remains the rebalance schedule and the turnover it induces. Robust dispersion proxies therefore function primarily as \emph{implementation tools}---a way to reduce tail sensitivity of the risk constraint---rather than as a standalone source of persistent outperformance.
+
+\subsection{Practical implementation guidance}
+For a practitioner deciding how to operationalize a constrained optimizer of this type, the results suggest a pragmatic sequence.
+\begin{itemize}
+	\item \textbf{Pick a rebalance policy that is cost-aware first.} Start with a frequency that is operationally feasible and consistent with expected trading frictions; use turnover and a cost model as primary diagnostics.
+	\item \textbf{Choose an estimation window intentionally.} If the goal is stability, consider decoupling the window length from the holding period (e.g., using a longer trailing window but trading less frequently).
+	\item \textbf{Then tune the risk proxy, with an eye on realized (not just nominal) risk.} MAD/IQR/P95 can be valuable if risk budgets are intended to be robust to rare shocks, but proxy choice is unlikely to rescue an otherwise high-churn process. If IQR is used, monitor realized volatility and turnover against the other proxies' realized levels, since the calibration mapping used here does not guarantee identical realized risk-taking across proxies.
+\end{itemize}
+
+\subsection{Limitations and robustness checks}
+\label{sec:limitations}
+There are several limitations worth emphasizing, both to frame the conclusions appropriately and to clarify which extensions are most likely to change the results.
+\begin{itemize}
+	\item \textbf{Universe and scope.} Results are for a narrow and interpretable sector-ETF universe under long-only, fully-invested constraints with a sector-only cap and a cash sleeve; findings may not generalize to broader universes, leverage, shorting, or factor portfolios. The evidence is also U.S.-only, equity-only, and drawn from a single 1999--2025 sample: no international, fixed-income, or multi-asset universe is examined, and no out-of-sample or alternative-period validation is performed.
+	\item \textbf{Expected return estimation.} Optimized portfolios are sensitive to expected return estimates \citep{Merton1980}. Using a raw rolling mean of daily returns is intentionally transparent but noisy; shrinkage/regularized mean estimators, Bayesian approaches, or signal-combination frameworks could reduce churn and potentially change the relative performance of rebalance frequencies.
+	\item \textbf{Covariance and dependence structure.} The volatility strategy uses a sample covariance estimator in each window; results may differ under shrinkage covariance estimators or regime-dependent models \citep{ledoitwolf2003}. Likewise, the square-root-of-time scaling assumes weak dependence; volatility clustering and serial correlation can cause realized annualization to deviate from $\sqrt{252}$ scaling.
+	\item \textbf{Risk-budget calibration across measures.} The proxy-to-proxy mapping uses normal multipliers to set comparable constraint levels. This is a pragmatic calibration, not a structural truth; when distributions exhibit skewness/kurtosis, the mapping can cause one proxy to bind more tightly --- or, as observed for IQR in this sample, more loosely --- than another in specific regimes, directly affecting cash usage, turnover, and the cost sensitivity documented in Section~\ref{sec:tc-robustness}.
+	\item \textbf{Transaction cost model.} Proportional costs are a stylized proxy for spreads and frictions. A more refined model could incorporate time-varying spreads, volatility-dependent execution costs, and market impact that grows nonlinearly with traded notional \citep{Kyle1985,almgrenchriss2001}. The current model is best viewed as a sensitivity analysis that isolates the role of turnover.
+	\item \textbf{Drawdown measurement.} Full-sample maximum drawdowns are reconstructed from the saved rebalance weights and daily asset returns rather than computed natively inside the backtest; the reconstruction reproduces every stored within-period value exactly across all 5{,}928 strategy-periods, but promoting it to a first-class pipeline metric would be a worthwhile build-level refinement. The drawdown column of \Cref{tab:summary-zero-cost} and the drawdown heatmap remain within-period quantities and are not comparable across rebalancing schedules; all cross-schedule drawdown conclusions in this paper are drawn from \Cref{tab:mdd-fullsample} only.
+	\item \textbf{Turnover is measured target-to-target.} Turnover is computed as the absolute change between the target weights set at successive rebalance dates. \YRev{Because the design holds target proportions constant within each holding period (\Cref{sec:impl-details}), the portfolio is implicitly rebalanced back to those proportions daily, and that within-period trading is not charged. The omitted amount is roughly constant in absolute terms, since it is driven by daily drift rather than by the re-optimization schedule: at the 10\% risk budget it is approximately 0.9--1.0 units of turnover per year at every schedule, against charged turnover of 10.29 (1-month), 3.14 (3-month), 1.37 (6-month) and 0.52 (annual) units per year. As a proportion of charged turnover it is therefore about 9\% at monthly rebalancing but roughly 192\% at annual rebalancing, so realized turnover is understated most at the longest holding periods. Since the analysis concludes that infrequent rebalancing is preferable partly on cost grounds, this bias runs in favor of that conclusion, and the reported cost drag at the 6-month and annual schedules should be read as a lower bound.}
+	\item \textbf{Benchmark asymmetry.} The benchmark is the S\&P 500 index itself, which bears neither an expense ratio nor trading costs, while the strategies hold ETFs whose adjusted closing prices are already net of fund expenses. Over a 27-year sample this asymmetry is of the same order as the transaction-cost drag being studied, and it works against the optimized strategies; an investable proxy would place both sides on equal footing.
+	\item \textbf{Cash yield and taxes.} \YRev{The main results (Sections~\ref{sec:results-0bps}--\ref{sec:tc-robustness}) use a zero-return cash sleeve; Section~\ref{sec:cash-robustness} directly tests this assumption by rerunning the full grid with the cash sleeve earning the realized 3-month T-bill yield and finds that terminal wealth rises in nearly every cell (by roughly 4--36\%) but that the rebalancing-frequency-dominates finding (Hypothesis~1) is unaffected, while the ranking among proxies shifts modestly at some horizons.} The analysis still ignores taxes; after-tax turnover can amplify the cost disadvantage of high-frequency trading, and this remains untested.
+	\item \textbf{Robustness to alternative timelines.} The strict no-look-ahead design is a strength, but other implementable variants exist (e.g., overlapping estimation windows, delayed execution, or using end-of-day signals with next-day implementation). These can affect both turnover and realized performance.
+	\item \textbf{Additional robustness checks (natural extensions).} Three particularly relevant checks are (i) decoupling the estimation-window length from the holding period (e.g., a fixed 6- or 12-month trailing window regardless of rebalance frequency), to test whether the ``rebalance frequency dominates'' finding survives independently of the estimation-noise confound flagged in Section~3.7.3; (ii) penalizing turnover explicitly in the objective (or adding trading bands/no-trade regions), following the norm-constrained portfolio framework of \citet{DeMiguelNorms2009}, to test whether the cost sensitivity --- particularly IQR's --- can be mitigated mechanically; and (iii) varying the cap $w_{\max}$ and the presence/return of cash to quantify how much of the proxy similarity is driven by feasible-set design.
+\end{itemize}
+
+\subsection{Economic and statistical significance}
+\label{sec:stat-significance}
+\YRev{The paper's central claims are about \emph{economic} significance: whether a difference survives implementability constraints and trading frictions and is large enough to matter in terminal wealth, drawdowns, realized risk, and turnover. That emphasis is retained, but this subsection now also reports a formal, dependence-aware statistical test of the two comparisons the paper leans on most: (i) whether the terminal-wealth gap between rebalancing schedules is distinguishable from sampling noise, and (ii) whether the terminal-wealth gap between IQR and the other three proxies is.
+
+\textbf{Method.} Because non-overlapping holding-period returns are the natural resampling unit here (each one is already a block that respects the paper's own no-look-ahead timeline), inference uses a block bootstrap over holding periods rather than a bootstrap over daily returns. \YRev{The blocks are the holding periods themselves, resampled independently with replacement, so the block structure is fixed by the rebalancing design rather than selected; this differs from the stationary bootstrap of \citet{PolitisRomano1994}, which randomizes block length precisely because no natural block boundary is available.} Two variants are used, matching the two comparisons above. \emph{Proxy comparison (paired):} at a fixed rebalancing schedule and risk budget, the four proxies' holding-period return series are aligned by rebalance date; the same set of period indices, drawn with replacement, is applied to all four series in each of $B=5{,}000$ bootstrap replications, and the resulting terminal-value differences (e.g., IQR minus Volatility) are used to build percentile confidence intervals. Pairing on the common dates preserves the fact that all four proxies faced the same market regimes in the same order, which is the relevant source of dependence for this comparison. \emph{Frequency comparison (independent):} rebalancing schedules do not share holding-period boundaries, so their period-return series cannot be paired directly; each schedule's terminal value is instead bootstrapped independently (same $B=5{,}000$), and the distribution of the difference is obtained by differencing the two independent bootstrap distributions. This variant is more conservative (wider) than a paired test would be, because it does not exploit any shared-regime information across schedules.
+
+\textbf{Results.} At the 6-month schedule and a 10\% risk budget (realized-cash scenario, Section~\ref{sec:cash-robustness}), the paired bootstrap gives a terminal-value point estimate of 728.50 for IQR versus 481.98 (Volatility), 575.65 (MAD), and 538.42 (P95). IQR's advantage over Volatility is statistically distinguishable from zero at the 95\% level (mean bootstrap difference \$273.83, 95\% CI \$53.67 to \$692.07, with IQR exceeding Volatility in 99.7\% of bootstrap draws). Its advantage over MAD and P95 is directionally strong (IQR ahead in 97.4\% and 96.7\% of draws, respectively) but the 95\% confidence intervals for those two differences narrowly include zero (\$$-$1.08 to \$469.94 for IQR$-$MAD; \$$-$10.65 to \$638.35 for IQR$-$P95), so those two comparisons should be read as suggestive rather than conclusive at the conventional 5\% level. This is consistent with, and sharpens, the paper's existing description of IQR's advantage as ``not universal'' rather than dominant.
+
+For the frequency comparison (IQR, 10\% risk budget, realized cash), 6-month rebalancing beats 1-month rebalancing in point estimates by a wide margin (728.50 vs.\ 422.27), and the independent-sample bootstrap puts 6-month rebalancing ahead in 79.5\% of draws (mean difference \$322.74), but the 95\% confidence interval for the difference is wide and includes zero (\$$-$556.42 to \$1{,}312.66). This does \emph{not} overturn the paper's central claim, but it does sharpen how that claim should be read: with only 52 non-overlapping 6-month periods (versus 312 monthly periods) \YRev{over the 26-year investment window (2000--2025) implied by the 27-year data sample}, the frequency comparison has limited statistical power even though the economic magnitude is large and consistent across proxies and cash scenarios (Sections~\ref{sec:results-0bps} and \ref{sec:cash-robustness}). The honest summary is that the \emph{point estimates} for rebalancing frequency are large and robust to the cash-yield robustness check, while the \emph{formal statistical evidence} for any single pairwise frequency comparison is not yet decisive at conventional significance levels given the sample's effective size --- exactly the kind of gap between economic and statistical significance this subsection was added to make explicit rather than assert away.
+
+Repeated evaluation over a grid of configurations (risk budgets, frequencies, proxies) still introduces a multiple-comparisons/data-snooping concern that the two bootstrap exercises above do not correct for \citep{White2000,LopezdePrado2018}; the two comparisons reported here were chosen because they underpin the paper's headline hypotheses, not selected after seeing which comparisons would look most significant. A full multiple-testing correction (e.g., White's reality check) across the entire (risk, frequency, proxy) grid, and a paired test on Sharpe-like ratios defined on mean excess returns \citep{jobsonkorkie1981} rather than terminal wealth, remain natural extensions beyond the scope of this revision.}
+
+\subsection{Hypothesis evaluation}
+The evidence across the 0 bps results (\Cref{sec:results-0bps}), the weight/turnover diagnostics (\Cref{sec:weights-turnover-0bps}), and the transaction-cost robustness analysis (\Cref{sec:tc-robustness}) supports a unified empirical takeaway, restated below to reflect the IQR-specific pattern documented across those sections.
+
+\medskip
+\noindent\textbf{Hypothesis 1 (frequency dominates).}
+Rebalancing frequency and the information set implied by the estimation-window design are first-order determinants of outcomes \YRev{in point estimate; \Cref{sec:stat-significance} shows that the corresponding interval estimate is wide and includes zero, so this hypothesis is supported directionally rather than at conventional significance levels}. Intermediate rebalance intervals (notably 6 months in this sample) often deliver stronger frictionless terminal wealth than shorter intervals, plausibly because the longer estimation window reduces estimation noise in $\YRev{\hat{\boldsymbol{\mu}}}$ and the risk constraint, while less frequent trading reduces churn; this holds within the shared implementability constraints (full investment, a sector cap, and an explicit cash sleeve) applied to all strategies. This pattern is also consistent with the theoretical no-trade-region literature: \citet{DonohueYip2003} show that fixed-schedule rebalancing can approximate the performance of the theoretically optimal, cost-aware no-trade policy, so an intermediate calendar frequency outperforming a higher-frequency one is in line with that theory's prediction that trading more often than the optimal no-trade boundary requires is a net drag once transaction costs are considered, rather than evidence against fixed-schedule rebalancing as a class.
+
+\medskip
+\noindent\textbf{Hypothesis 2 (proxy choice is second-order, but not negligible, under implementability constraints).}
+Once long-only, full investment, a sector cap, and an explicit cash sleeve are imposed, changing the dispersion proxy typically affects allocations through cash usage and mild concentration shifts rather than through radically different sector exposures. Across many (risk, frequency) cells, realized outcomes are broadly similar across volatility, MAD, IQR, and P95, especially at longer horizons, and the rebalance-frequency effect is typically --- though not universally --- larger than the proxy effect. At the 6-month horizon and a 10\% risk budget, for instance, the spread across proxies (657.18 for IQR versus 440.76 for volatility) exceeds the spread across frequencies for the volatility proxy (440.76 at 6 months versus 317.62 at 1 month). However, this should not be read as full equivalence: IQR realizes higher volatility, higher turnover, and a larger relative transaction-cost penalty than the other three proxies at the same nominal risk budget in nearly every cell (\Cref{sec:results-0bps,sec:weights-turnover-0bps,sec:tc-robustness}), a pattern consistent with the normal-approximation calibration binding more loosely for IQR rather than with a genuine advantage of the IQR risk concept. The present design does not vary the calibration, so it cannot separate these two explanations. Proxy choice is therefore second-order in magnitude relative to rebalancing frequency, but is not economically inert.
+
+\noindent
+\noindent\textbf{Hypothesis 3 (turnover explains cost sensitivity).}
+Because the cost model is proportional to turnover, net performance under costs is largely explained by turnover intensity. Higher-frequency strategies exhibit persistently larger cumulative traded notional, which explains why even low single-digit basis-point costs can materially change net rankings; the same mechanism explains why IQR, as the highest-turnover proxy, also exhibits the largest relative cost drag at every rebalancing frequency tested.
+
+For exposition, the 10\% risk budget is treated as a representative ``medium'' case when illustrating allocation paths and cost drag, while retaining the full (risk, frequency, strategy) grid in the summary and turnover tables.
+
+\section{Conclusion}
+This paper evaluates volatility-, MAD-, IQR-, and central-quantile-range (P95)-constrained portfolio optimization in a constrained, implementable sector-ETF setting over a long historical sample and under a strict no-look-ahead timeline. The analysis emphasizes the interaction between (i) how risk is measured in daily windows, (ii) how often the portfolio is re-optimized, and (iii) how turnover translates into net performance under costs.
+
+The core message for practitioners is a hierarchy of decisions.
+\begin{itemize}
+	\item \textbf{Choose a rebalance interval and estimation window jointly.} In this universe and timeline (estimation window equals the holding period), differences across 1mo/3mo/6mo/1y schedules are typically larger than differences across dispersion proxies (Sections~\ref{sec:results-0bps}--\ref{sec:tc-robustness}). More broadly, the window length determines input noise; the rebalance frequency determines how often that noise is ``traded.''
+	\item \textbf{Treat turnover as a primary risk alongside drawdown and volatility.} When proportional costs are introduced---even at 1--2 bps---net outcomes are largely explained by turnover intensity. A configuration that looks attractive at 0 bps can lose its edge once repeated trading haircuts compound (Section~\ref{sec:tc-robustness}).
+	\item \textbf{Use robust dispersion proxies as implementation choices, not silver bullets.} MAD/IQR/P95 constraints are feasible and interpretable, but in this constrained ETF setting, they do not reliably deliver a systematic turnover advantage relative to volatility constraints. If anything, IQR --- which posts the strongest frictionless terminal wealth under monthly and 6-month rebalancing, though not at the quarterly or annual horizons --- also carries a modest but consistent turnover and cost-drag disadvantage relative to the other three proxies (Sections~\ref{sec:weights-turnover-0bps}--\ref{sec:tc-robustness}), a pattern most plausibly explained by the normal-approximation calibration binding more loosely for IQR under fat-tailed daily returns (Section~3.6) rather than by any inherent advantage of the IQR risk concept itself. Any incremental benefit from proxy choice is most likely to come from (i) better expected-return estimation, (ii) explicit turnover-aware design (penalties, bands, or no-trade regions), or (iii) a different objective that directly trades off expected return against both risk and trading costs.
+\end{itemize}
+
+From an implementation lens, the practical implication is straightforward: if the objective is to improve net terminal wealth and deliver a robust investor experience, prioritizing a cost-aware rebalance policy and reducing unnecessary trading is likely to be more impactful than swapping among closely related dispersion measures inside an otherwise unchanged optimizer. Robust dispersion proxies remain useful---particularly as guardrails against outlier-driven tightening of risk constraints---but the results suggest that turnover-aware design is the more direct lever for economic viability in this setting.
+
+These conclusions are drawn from a single, narrow universe (nine U.S. sector ETFs), a specific set of implementability constraints, and a stylized proportional cost model; Section~7.5 details the corresponding limitations and the robustness checks --- decoupling the estimation window from the holding period, penalizing turnover explicitly, and varying the allocation cap and cash treatment --- that would most directly test whether this hierarchy of decisions holds outside the present design.
+
+% ---------------------------
+
+\authorcontributions{Conceptualization: E.P.; Methodology: S.S., A.M. and G.S.; 
+Software:  S.S., A.M. and G.S.; 
+Data Curation:  S.S., A.M. and G.S.; 
+Investigation:  S.S., A.M.,G.S.and E.P.; 
+Formal Analysis:  S.S., A.M., G.S. and E.P.;
+Visualization:  S.S., A.M. and G.S.; 
+Writing---Original Draft Preparation:  S.S., A.M., G.S. and E.P.;
+Writing—Review and Editing:  S.S., A.M., G.S.and E.P.; 
+Project Administration and Supervision: E.P. All authors have read and agreed to the published version of the manuscript.}
+
+\funding{This research was conducted without any external funding.}
+
+\dataavailability{Data and code are available at \url{https://github.com/SidShah2953/MAD-and-Quantile-Portfolios} 
+(accessed on 28 August 2026). }
+
+\acknowledgments{We thank the Department of Computer Science at Boston University Metropolitan College for their support.}
+
+\conflictsofinterest{The authors declare no conflicts of interest.}
+
+\printendnotes[custom]
+\reftitle{References}
+\bibliography{citations}
+
+\end{document}

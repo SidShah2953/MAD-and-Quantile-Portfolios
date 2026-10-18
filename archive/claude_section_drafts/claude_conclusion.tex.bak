@@ -1,0 +1,26 @@
+\documentclass[a4paper]{article}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{geometry}
+\usepackage{natbib}
+\geometry{margin=1in}
+
+\begin{document}
+
+\section{Conclusion}
+
+This paper evaluates volatility-, MAD-, IQR-, and central-quantile-range (P95)-constrained portfolio optimization in a constrained, implementable sector-ETF setting over a long historical sample and under a strict no-look-ahead timeline. The analysis emphasizes the interaction between (i) how risk is measured in daily windows, (ii) how often the portfolio is re-optimized, and (iii) how turnover translates into net performance under costs.
+
+The core message for practitioners is a hierarchy of decisions.
+
+\begin{itemize}
+    \item \textbf{Choose a rebalance interval and estimation window jointly.} In this universe and timeline (estimation window equals the holding period), differences across 1mo/3mo/6mo/1y schedules are typically larger than differences across dispersion proxies (Sections~4--6). More broadly, the window length determines input noise; the rebalance frequency determines how often that noise is ``traded.''
+    \item \textbf{Treat turnover as a primary risk alongside drawdown and volatility.} When proportional costs are introduced --- even at 1--2 bps --- net outcomes are largely explained by turnover intensity. A configuration that looks attractive at 0 bps can lose its edge once repeated trading haircuts compound (Section~6).
+    \item \textbf{Use robust dispersion proxies as implementation choices, not silver bullets.} MAD/IQR/P95 constraints are feasible and interpretable, but in this constrained ETF setting, they do not reliably deliver a systematic turnover advantage relative to volatility constraints. If anything, IQR --- the proxy with the strongest frictionless terminal-wealth performance in this sample --- also carries a modest but consistent turnover and cost-drag disadvantage relative to the other three proxies (Sections~5--6), a pattern most plausibly explained by the normal-approximation calibration binding more loosely for IQR under fat-tailed daily returns (Section~3.6) rather than by any inherent advantage of the IQR risk concept itself. Any incremental benefit from proxy choice is most likely to come from (i) better expected-return estimation, (ii) explicit turnover-aware design (penalties, bands, or no-trade regions), or (iii) a different objective that directly trades off expected return against both risk and trading costs.
+\end{itemize}
+
+From an implementation lens, the practical implication is straightforward: if the objective is to improve net terminal wealth and deliver a robust investor experience, prioritizing a cost-aware rebalance policy and reducing unnecessary trading is likely to be more impactful than swapping among closely related dispersion measures inside an otherwise unchanged optimizer. Robust dispersion proxies remain useful --- particularly as guardrails against outlier-driven tightening of risk constraints --- but the results suggest that turnover-aware design is the more direct lever for economic viability in this setting.
+
+These conclusions are drawn from a single, narrow universe (nine U.S. sector ETFs), a specific set of implementability constraints, and a stylized proportional cost model; Section~7.5 details the corresponding limitations and the robustness checks --- decoupling the estimation window from the holding period, penalizing turnover explicitly, and varying the allocation cap and cash treatment --- that would most directly test whether this hierarchy of decisions holds outside the present design.
+
+\end{document}

@@ -38,7 +38,6 @@ def summarize_config(output_root: Path, cfg: Config) -> pd.DataFrame:
     pv = read_metric(output_root, cfg, "PV")
     mdd = read_metric(output_root, cfg, "MDD")
     vol = read_metric(output_root, cfg, "Volatility")
-    sharpe = read_metric(output_root, cfg, "Sharpe")
     turnover = read_turnover(output_root, cfg)
 
     idx = _parse_period_index(pv.index)
@@ -55,9 +54,18 @@ def summarize_config(output_root: Path, cfg: Config) -> pd.DataFrame:
         # MDD is stored as negative percent values; report the worst drawdown magnitude as a positive percent.
         mdd_worst = float(mdd[strat].min()) if strat in mdd.columns else float("nan")
 
-        # These are already annualized in percent units (volatility) and unitless for Sharpe.
-        vol_mean = float(vol[strat].replace([math.inf, -math.inf], pd.NA).dropna().mean()) if strat in vol.columns else float("nan")
-        sharpe_mean = float(sharpe[strat].replace([math.inf, -math.inf], pd.NA).dropna().mean()) if strat in sharpe.columns else float("nan")
+        # Volatility is already annualized in percent units.
+        # Exclude the period-0 placeholder (BasePortfolio sets Volatility/MAD/IQR to 0 there,
+        # unlike Sharpe/RAR which it sets to NaN). Including it biases the mean by -1/(N+1),
+        # which grows with holding period and so distorts cross-schedule comparisons.
+        vol_mean = _reduce_metric_series(vol[strat], "mean_excluding_first") if strat in vol.columns else float("nan")
+        # CAGR/AnnVol per Eq. (27): the ratio of the CAGR and AnnVol reported in this same row.
+        # NOTE: do NOT substitute the pipeline's per-period "Sharpe" metric here. That series is
+        # (annualized period return / annualized period volatility) averaged over periods -- a mean
+        # of ratios, not a ratio of aggregates -- and is systematically larger. Using it for this
+        # column is what produced the inconsistency with Eq. (27) reported by Reviewer 2.
+        # cagr is a fraction here; vol_mean is already in percent units, so scale to match.
+        cagr_annvol = ((cagr * 100.0) / vol_mean) if (vol_mean and not math.isnan(vol_mean)) else float("nan")
         turnover_mean = _reduce_metric_series(turnover[strat], "mean_excluding_first") if strat in turnover.columns else float("nan")
 
         out_rows.append(
@@ -67,7 +75,7 @@ def summarize_config(output_root: Path, cfg: Config) -> pd.DataFrame:
                 "CAGR": cagr,
                 "MDD": mdd_worst,
                 "AnnVol": vol_mean,
-                "Sharpe": sharpe_mean,
+                "CAGR/AnnVol": cagr_annvol,
                 "Turnover": turnover_mean,
             }
         )
@@ -191,15 +199,15 @@ def build_tables(project_root: Path) -> None:
     best_df["Terminal PV"] = best_df["Terminal PV"].map(lambda x: _format_number(x, 2))
     best_df["MDD"] = best_df["MDD"].map(lambda x: _format_number(x, 2))
     best_df["AnnVol"] = best_df["AnnVol"].map(lambda x: _format_number(x, 2))
-    best_df["Sharpe"] = best_df["Sharpe"].map(lambda x: _format_number(x, 3))
+    best_df["CAGR/AnnVol"] = best_df["CAGR/AnnVol"].map(lambda x: _format_number(x, 3))
     best_df["Turnover"] = best_df["Turnover"].map(lambda x: _format_number(x, 3))
 
-    best_df = best_df[["Frequency", "Strategy", "Best Risk", "Terminal PV", "CAGR", "MDD", "AnnVol", "Sharpe", "Turnover"]]
+    best_df = best_df[["Frequency", "Strategy", "Best Risk", "Terminal PV", "CAGR", "MDD", "AnnVol", "CAGR/AnnVol", "Turnover"]]
 
     tab = best_df.to_latex(index=False, escape=False, longtable=False)
     write_table(
         tables_root / "summary_zero_cost.tex",
-        "Performance summary at 0\\% transaction costs. For each strategy and rebalancing frequency, results are shown at the risk budget that maximizes terminal portfolio value. MDD values are negative; turnover is the mean rebalance-to-rebalance sum of absolute \emph{non-cash} weight changes (cash sleeve excluded), which matches the transaction-cost model.",
+        "Performance summary at 0\\% transaction costs. For each strategy and rebalancing frequency, results are shown at the risk budget that maximizes terminal portfolio value. MDD values are negative; turnover is the mean rebalance-to-rebalance sum of absolute \emph{non-cash} weight changes (cash sleeve excluded), which matches the transaction-cost model. CAGR/AnnVol is computed per Eq. (27) as the ratio of the CAGR and AnnVol values in the same row, where CAGR is a full-sample compound growth rate and AnnVol is the mean of the per-period annualized volatilities.",
         "tab:summary-zero-cost",
         tab,
     )
@@ -222,26 +230,26 @@ def build_tables(project_root: Path) -> None:
                 {
                     "Frequency": freq,
                     "Strategy": latex_escape_text(strat),
-                    "Net PV (0%)": _format_number(pv0, 2),
-                    "Net PV (1%)": _format_number(pv1, 2),
-                    "Net PV (2%)": _format_number(pv2, 2),
-                    "Drag at 2%": _format_percent(drag2, 2),
+                    "Net PV (0 bps)": _format_number(pv0, 2),
+                    "Net PV (1 bp)": _format_number(pv1, 2),
+                    "Net PV (2 bps)": _format_number(pv2, 2),
+                    "Drag at 2 bps": _format_percent(drag2, 2),
                 }
             )
 
     tc_df = pd.DataFrame(tc_rows)
     tc_df = tc_df.rename(
         columns={
-            "Net PV (0%)": "Net PV (0\\%)",
-            "Net PV (1%)": "Net PV (1\\%)",
-            "Net PV (2%)": "Net PV (2\\%)",
-            "Drag at 2%": "Drag at 2\\%",
+            "Net PV (0 bps)": "Net PV (0 bps)",
+            "Net PV (1 bp)": "Net PV (1 bp)",
+            "Net PV (2 bps)": "Net PV (2 bps)",
+            "Drag at 2 bps": "Drag at 2 bps",
         }
     )
     tc_tab = tc_df.to_latex(index=False, escape=False)
     write_table(
         tables_root / "tc_summary_10pct_risk.tex",
-        "Net terminal portfolio value under proportional transaction costs at 10\\% risk budget. Net PV values are from \\texttt{Transaction Cost.xlsx}. Drag at 2\\% shows the percentage change in terminal value relative to 0\\% costs.",
+        "Net terminal portfolio value under proportional transaction costs at the 10\\% risk budget. Cost rates are in basis points (bps), not percent: the three columns correspond to 0, 1 and 2 bps per unit of turnover. ``Drag at 2 bps'' shows the percentage change in terminal value relative to the 0 bps column.",
         "tab:tc-summary",
         tc_tab,
     )
@@ -318,12 +326,17 @@ def build_tables(project_root: Path) -> None:
         "tab:app-terminal-pv-0",
     )
 
-    grid_table(
+    # NOTE: MDD must use the "min" reducer (worst over periods). grid_table() takes the
+    # LAST period's value, which is not the worst -- that mismatched this table against
+    # the summary table, which uses mdd[strat].min().
+    grid_table_reduced(
         "0 bps Transaction Cost",
         "MDD",
         "appendix_mdd_zero_cost.tex",
-        "Worst maximum drawdown (percent) for all risk budgets and rebalancing schedules at 0\\% transaction costs.",
+        "Worst within-period maximum drawdown (percent) for all risk budgets and rebalancing schedules at 0 bps transaction costs. Values are the deepest decline observed inside a single holding period; because the holding period equals the rebalancing interval, this measure is not comparable across rebalancing schedules.",
         "tab:app-mdd-0",
+        reducer="min",
+        decimals=2,
     )
 
     grid_table(
@@ -341,7 +354,7 @@ def build_tables(project_root: Path) -> None:
         "appendix_volatility_zero_cost.tex",
         "Mean realized annualized volatility (percent) over time for all risk budgets and rebalancing schedules at 0\\% transaction costs.",
         "tab:app-vol-0",
-        reducer="mean",
+        reducer="mean_excluding_first",
         decimals=2,
     )
     grid_table_reduced(
@@ -350,7 +363,7 @@ def build_tables(project_root: Path) -> None:
         "appendix_mad_zero_cost.tex",
         "Mean realized annualized MAD (percent) over time for all risk budgets and rebalancing schedules at 0\\% transaction costs.",
         "tab:app-mad-0",
-        reducer="mean",
+        reducer="mean_excluding_first",
         decimals=2,
     )
     grid_table_reduced(
@@ -359,7 +372,7 @@ def build_tables(project_root: Path) -> None:
         "appendix_iqr_zero_cost.tex",
         "Mean realized annualized IQR (percent) over time for all risk budgets and rebalancing schedules at 0\\% transaction costs.",
         "tab:app-iqr-0",
-        reducer="mean",
+        reducer="mean_excluding_first",
         decimals=2,
     )
     grid_table_reduced(
@@ -433,15 +446,18 @@ def build_tables(project_root: Path) -> None:
         write_table(tables_root / filename, caption, label, tab)
 
     # Appendix: mean turnover grid (from Weights/Comparison.xlsx)
-    def turnover_grid(tc_label: str, filename: str, caption: str, label: str) -> None:
+    def turnover_grid(tc_label: str, filename: str, caption: str, label: str,
+                      *, risk_major: bool = False) -> None:
         rows = []
-        for freq in FREQ_ORDER:
-            for risk in RISK_ORDER:
+        outer, inner = (RISK_ORDER, FREQ_ORDER) if risk_major else (FREQ_ORDER, RISK_ORDER)
+        for a in outer:
+            for b in inner:
+                risk, freq = (a, b) if risk_major else (b, a)
                 cfg = Config(tc_label, risk, freq)
                 if cfg not in configs:
                     continue
                 turnover = read_turnover(output_root, cfg)
-                row = {"Frequency": freq, "Risk": risk}
+                row = {"Risk": risk, "Frequency": freq} if risk_major else {"Frequency": freq, "Risk": risk}
                 for strat in STRATEGY_ORDER:
                     if strat in turnover.columns:
                         row[latex_escape_text(strat)] = _reduce_metric_series(turnover[strat], "mean_excluding_first")
@@ -451,7 +467,8 @@ def build_tables(project_root: Path) -> None:
         if len(g) == 0:
             return
 
-        g = g.sort_values(["Frequency", "Risk"], key=lambda s: s.map({v: i for i, v in enumerate(FREQ_ORDER + RISK_ORDER)}).fillna(999))
+        sort_cols = ["Risk", "Frequency"] if risk_major else ["Frequency", "Risk"]
+        g = g.sort_values(sort_cols, key=lambda s: s.map({v: i for i, v in enumerate(FREQ_ORDER + RISK_ORDER)}).fillna(999))
         g["Risk"] = g["Risk"].map(latex_escape_text)
         for strat in [latex_escape_text(s) for s in STRATEGY_ORDER]:
             if strat in g.columns:
@@ -464,6 +481,19 @@ def build_tables(project_root: Path) -> None:
         "appendix_turnover_zero_cost.tex",
         "Mean one-way turnover per rebalance for all risk budgets and rebalancing schedules at 0\\% transaction costs.",
         "tab:app-turnover-0",
+    )
+
+    turnover_grid(
+        "0 bps Transaction Cost",
+        "turnover_by_risk_zero_cost.tex",
+        "Mean rebalance-to-rebalance sum of absolute \\emph{non-cash} weight changes (turnover proxy; "
+        "cash sleeve excluded) at 0 bps transaction costs, reported across risk budgets and rebalancing "
+        "frequencies. The mean is taken over rebalance dates after the initial allocation, and the measure "
+        "is target-to-target: it compares the weights chosen at successive rebalance dates and therefore "
+        "excludes intra-period drift (see \\Cref{sec:limitations}). This is the sole turnover measure used "
+        "in this paper and it matches the transaction-cost model of \\Cref{sec:tc-robustness}.",
+        "tab:turnover-by-risk-zero-cost",
+        risk_major=True,
     )
 
     net_pv_grid(

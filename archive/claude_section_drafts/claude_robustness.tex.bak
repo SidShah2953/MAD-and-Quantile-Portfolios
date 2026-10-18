@@ -1,0 +1,100 @@
+\documentclass[a4paper]{article}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{geometry}
+\usepackage{amsmath}
+\usepackage{booktabs}
+\usepackage{natbib}
+\geometry{margin=1in}
+
+\begin{document}
+
+\section{Robustness: Transaction Costs}
+
+This section tests whether the frictionless ranking persists under proportional transaction costs that penalize turnover. Because proportional costs are driven by trading volume, the turnover patterns documented in Section~5 provide the mechanism linking rebalancing frequency to net performance.
+
+The transaction cost model used here is deliberately simple and transparent: a proportional haircut applied to turnover at each rebalance. This stylized structure isolates the economic channel (turnover) while abstracting from implementation details such as time-varying spreads, nonlinear market impact, and optimal execution. The section concludes with a discussion of how results would change under more refined cost structures.
+
+\subsection{Economic Viability Under Proportional Costs}
+
+Figure~11 and Table~\ref{tab:txcosts} evaluate net terminal wealth under transaction cost rates of 0, 1, and 2 \textbf{basis points (bps)} applied proportionally to turnover. These levels are intended to represent a low-friction ETF implementation environment (spreads/fees/slippage aggregated into a simple proportional cost) while still highlighting the mechanical link between turnover and cost drag.
+
+\paragraph{Turnover measurement and one-way vs.\ two-way costs.} Recall from Section~3.7.3 that turnover is measured as the sum of absolute weight changes in risky assets (sector ETFs), treating the cash sleeve as a costless funding source:
+\begin{equation}
+    \tau_k = \sum_{i \in S} |w_{k,i} - w_{k-1,i}|.
+\end{equation}
+This corresponds to charging a one-way cost on risky-asset trades: if the portfolio moves \$1 from cash into a sector ETF, it incurs a cost proportional to \$1; if it simultaneously moves \$1 out of another sector ETF into cash, that also incurs a cost proportional to \$1. The total charged turnover for such a rebalance is \$2 (one-way cost on each risky leg), not \$1.
+
+In a setting without cash (or where cash is fixed at zero), the long-only and fully-invested constraints imply that buys and sells in risky assets match in aggregate, so the traditional ``one-way turnover'' is $\tfrac{1}{2}\tau_k$. With an active cash sleeve, however, net flows into or out of risky assets need not sum to zero at each rebalance, and $\tau_k$ directly reflects the total notional traded in risky assets.
+
+The proportional haircut at rebalance $k$ is
+\begin{equation}
+    \mathrm{Cost}_k = c\, \tau_k\, V_{k^-},
+\end{equation}
+where $c \in \{0, 1, 2\}$ bps is the cost rate and $V_{k^-}$ is portfolio value immediately before rebalancing. Holding-period returns are then earned on the post-cost value $V_k = V_{k^-} - \mathrm{Cost}_k$.
+
+\paragraph{Interpretation and magnitudes.} A 1 bps proportional cost is intentionally conservative: liquid sector ETFs typically trade with bid-ask spreads well below 1 bps during normal market conditions. However, realized execution costs include not only the quoted spread but also timing costs, potential adverse selection when trading large sizes, and any slippage relative to the rebalance signal. The 1--2 bps range used here is therefore best interpreted as an ``all-in'' execution cost that aggregates these frictions into a single proportional rate.
+
+The dominant driver of performance under costs is turnover. Strategies that rebalance more frequently and generate larger weight changes incur larger cumulative trading haircuts. In contrast, the buy-and-hold benchmark is comparatively insensitive because turnover is near zero. At lower rebalancing frequencies (6 months and 1 year), optimized strategies generally remain viable, but the ranking can still shift once costs are applied because small differences in turnover compound over long horizons.
+
+For ease of comparison, the benchmark's net terminal value is invariant to the transaction-cost rate (it does not trade) and is therefore repeated across the frequency panels in Table~\ref{tab:txcosts}.
+
+Cost drag is smaller at 6-month/1-year horizons because (i) there are fewer rebalances and (ii) turnover per rebalance is typically lower, so cumulative traded notional is smaller. To anchor magnitudes, consider the back-of-the-envelope calculation from Section~5: at a 10\% risk budget, monthly volatility optimization has annualized turnover intensity near $12 \times 0.857 \approx 10.3$, implying roughly 10 bps of cost drag per year under a 1 bps rate (before compounding). Over a multi-decade horizon, this compounds into a material wealth difference, consistent with the $-5.21\%$ cumulative drag observed for 1mo/Volatility at the 2 bps rate in Table~\ref{tab:txcosts}.
+
+\paragraph{IQR bears a consistently larger relative cost penalty, not a comparable one.} Table~\ref{tab:txcosts}'s ``Drag at 2 bps'' column shows that IQR has the largest percentage drag of the four optimized strategies at \emph{every} rebalancing frequency: $-5.63\%$ at 1mo (vs.\ $-5.21\%$ for Volatility, $-5.37\%$ for MAD, $-5.52\%$ for P95); $-1.79\%$ at 3mo; $-0.78\%$ at 6mo; and $-0.32\%$ at 1y. This is directionally consistent with, and confirms, the turnover pattern documented in Section~5: IQR is the highest-turnover proxy in nearly every (risk, frequency) cell of Table~2, and that elevated turnover translates directly into elevated relative cost drag once proportional costs are applied. The differential is economically modest in absolute terms (roughly 0.1--0.4 percentage points of additional relative drag depending on frequency) and is not large enough, in this sample, to overturn IQR's frictionless terminal-wealth advantage --- IQR remains the top-performing optimized strategy at the 6-month horizon even after 2 bps of costs (\$652.08 vs.\ the next-best MAD at \$508.46). The more precise statement of the negative result is therefore: swapping the risk proxy does not deliver a turnover or cost \emph{advantage} in this implementation --- if anything, the proxy that produces the highest frictionless terminal wealth (IQR) also produces the highest turnover and the largest relative cost penalty, though not large enough here to change the ranking.
+
+\begin{table}[htbp]
+\centering
+\caption{Net terminal portfolio value under proportional transaction costs at the 10\% risk budget. Cost rates are in basis points (bps), not percent. ``Drag at 2 bps'' shows the percentage change in terminal value relative to 0 bps costs.}
+\label{tab:txcosts}
+\begin{tabular}{llrrrr}
+\toprule
+Frequency & Strategy & Net PV (0 bps) & Net PV (1 bp) & Net PV (2 bps) & Drag at 2 bps \\
+\midrule
+1mo & S\&P BnH   & 469.37 & 469.37 & 469.37 & 0.00\% \\
+1mo & Volatility & 317.62 & 309.23 & 301.07 & $-5.21\%$ \\
+1mo & MAD        & 313.02 & 304.51 & 296.23 & $-5.37\%$ \\
+1mo & IQR        & 371.84 & 361.21 & 350.89 & $-5.63\%$ \\
+1mo & P95        & 329.38 & 320.16 & 311.20 & $-5.52\%$ \\
+3mo & S\&P BnH   & 469.37 & 469.37 & 469.37 & 0.00\% \\
+3mo & Volatility & 324.41 & 321.77 & 319.16 & $-1.62\%$ \\
+3mo & MAD        & 350.92 & 347.99 & 345.08 & $-1.67\%$ \\
+3mo & IQR        & 339.20 & 336.15 & 333.13 & $-1.79\%$ \\
+3mo & P95        & 378.20 & 374.98 & 371.78 & $-1.70\%$ \\
+6mo & S\&P BnH   & 469.37 & 469.37 & 469.37 & 0.00\% \\
+6mo & Volatility & 440.76 & 439.19 & 437.63 & $-0.71\%$ \\
+6mo & MAD        & 512.07 & 510.26 & 508.46 & $-0.71\%$ \\
+6mo & IQR        & 657.18 & 654.62 & 652.08 & $-0.78\%$ \\
+6mo & P95        & 458.35 & 456.75 & 455.15 & $-0.70\%$ \\
+1y  & S\&P BnH   & 469.37 & 469.37 & 469.37 & 0.00\% \\
+1y  & Volatility & 378.06 & 377.55 & 377.04 & $-0.27\%$ \\
+1y  & MAD        & 409.51 & 408.92 & 408.34 & $-0.29\%$ \\
+1y  & IQR        & 389.81 & 389.18 & 388.56 & $-0.32\%$ \\
+1y  & P95        & 474.63 & 473.91 & 473.19 & $-0.30\%$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\textbf{Note on table sourcing.} The original draft attributed Table~\ref{tab:txcosts} to an internal file (``Transaction Cost.xlsx''). This kind of internal filename reference should not appear in the submitted manuscript; it has been removed here, and the table should instead be generated directly from (or explicitly cross-referenced to) the paper's reproducibility artifact --- e.g., a numbered supplementary data file or code repository --- consistent with how the rest of the paper documents its build pipeline.
+
+\subsection{Alternative Cost Structures and Extensions}
+
+The proportional cost model used in this analysis is a first-order approximation. Several extensions would provide a more realistic representation of trading frictions, though at the cost of additional complexity.
+
+\paragraph{Nonlinear market impact.} A well-established result in market microstructure is that price impact grows nonlinearly with trade size \citep{almgrenchriss2001,kyle1985}. In a simplified permanent-impact model, executing a trade of size $Q$ in an asset with daily volume $V$ incurs an impact proportional to $(Q/V)^\alpha$ for some $\alpha \in (0.5, 1)$, often calibrated near 0.5--0.6 for equities. For the liquid sector ETFs in this study, impact is likely negligible at modest rebalance sizes, but large reallocations (e.g., moving 10--20\% of portfolio value into a single ETF in a single day) could incur measurable impact.
+
+If impact were modeled, the main qualitative result --- that turnover drives cost drag --- would persist, but the penalty for high-turnover strategies would be amplified because large discrete trades (which occur more frequently at short rebalance intervals) would be disproportionately expensive. This would further favor lower-frequency rebalancing, and would likely widen, rather than narrow, IQR's cost disadvantage documented above, since IQR is both the highest-turnover proxy and the one most associated with larger reallocations.
+
+\paragraph{Time-varying spreads and volatility-dependent costs.} Spreads widen during stress periods and contract during calm markets. A more refined model could make $c$ time-varying, linked to measures of market liquidity or realized volatility. This would penalize rebalancing during crises (when dispersion estimates are noisiest and spreads are widest) and could interact with the risk-proxy choice: if robust proxies reduce the frequency of ``panic reallocations,'' they might deliver a secondary benefit through lower realized execution costs.
+
+\paragraph{Optimal execution and temporary impact.} The current model assumes trades execute instantaneously at a fixed cost. In practice, large orders are split over time to minimize the temporary impact, creating a trade-off between urgency and cost \citep{almgrenchriss2001}. Incorporating optimal execution would require specifying a within-rebalance trading horizon (e.g., trade over 1--2 days after the signal), which would smooth the realized cost but also introduce timing risk.
+
+\paragraph{Turnover penalties and no-trade regions.} A direct way to mitigate turnover is to add an explicit turnover penalty to the objective or to impose no-trade bands that prevent rebalancing unless weight drift exceeds a threshold. These approaches are standard in practice and can materially reduce trading intensity \citep{garleanupedersen2013}. The current analysis does not implement such mechanisms, but the turnover diagnostics in Table~2 (Section~5) provide a baseline against which turnover-penalized variants could be compared. Given IQR's elevated turnover documented above, it is plausibly the strategy with the most to gain from such a mechanism, though confirming this is left to future work.
+
+\paragraph{Implications for robust proxies.} If nonlinear impact or time-varying costs were introduced, the relative ranking of risk proxies could shift further if one proxy systematically avoids large trades during high-cost regimes. Based on the turnover and cost-drag patterns already observed in this implementation (Table~2 and Table~\ref{tab:txcosts}), such a shift would plausibly work \emph{against} IQR rather than in its favor, since IQR is already the highest-turnover, highest-relative-drag proxy under the simple linear cost model used here.
+
+\emph{[Figure 11. Transaction cost drag at a 10\% annualized risk budget. Terminal net portfolio value plotted against proportional transaction cost rate (0, 1, 2 bps) for each strategy; panels correspond to rebalancing schedules (1mo, 3mo, 6mo, 1y).]}
+
+\paragraph{Practitioner takeaway.} In this implementation, the cost curve is largely a turnover curve: reducing rebalance frequency (and/or explicitly penalizing turnover) is a more direct lever for improving net outcomes than swapping among closely related dispersion measures. Among the dispersion measures themselves, IQR's higher frictionless returns come paired with a consistently higher cost sensitivity; in this sample the former outweighs the latter, but the margin of that trade-off narrows as trading frictions are assumed to be more severe.
+
+\end{document}

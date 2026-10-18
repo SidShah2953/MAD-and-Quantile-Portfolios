@@ -1,0 +1,92 @@
+\documentclass[a4paper]{article}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{geometry}
+\usepackage{amsmath}
+\usepackage{booktabs}
+\usepackage{natbib}
+\geometry{margin=1in}
+
+\begin{document}
+
+\section{Portfolio Weights and Turnover (0 bps)}
+
+This section focuses on weight distributions and turnover across rebalancing frequencies and strategies. These allocation dynamics provide the foundation for the transaction cost analysis in Section~6.
+
+\paragraph{Evidence and interpretation.} If proportional transaction costs scale with turnover, then weight dynamics are not merely descriptive: they determine the economic viability of a strategy. This section documents two empirically visible mechanisms. First, turnover falls mechanically as the rebalancing interval increases, because weights are adjusted less frequently. Second, differences across risk proxies tend to appear through cash usage and concentration patterns rather than through completely different sector exposures --- though, as discussed below, IQR is a partial exception on the turnover dimension specifically.
+
+Beyond these headlines, two additional points are important for interpretation. First, ``low turnover'' does not necessarily mean ``small trades'': lower-frequency portfolios often exhibit lumpier reallocations (larger step changes at each rebalance) even if average turnover per rebalance is lower. Second, because estimation windows are defined as the immediately prior holding period, higher-frequency portfolios operate with shorter samples and can therefore exhibit more parameter noise, which mechanically increases trading as inputs fluctuate.
+
+\subsection{Turnover Across Frequencies and Strategies}
+
+Table~\ref{tab:turnover} reports turnover (mean rebalance-to-rebalance sum of absolute weight changes) across risk budgets and rebalancing schedules at 0 bps. The 10\% risk budget is highlighted as a representative ``medium'' case in the discussion below.
+
+\textbf{Note on reconciliation with Table~1.} Table~\ref{tab:turnover} below reports the values from the dedicated turnover build (Table 2 in the original draft) and is treated as the source of truth for turnover figures throughout the paper. Five cells showed small discrepancies (at or below 0.001) against the terminal-performance table in the previous section (Table~1), with one larger discrepancy at the 1y/P95/10\% cell (0.579 in Table~1 vs.\ 0.572 here, a difference of 0.007). \textbf{Before submission, Table~1 in the frictionless-results section should be regenerated from the same pipeline run as Table~\ref{tab:turnover} so that every reported turnover figure in the paper traces to a single source of truth.} This is flagged explicitly here rather than silently patched, since a reproducibility discrepancy this specific (same cell, same strategy) is worth tracking down in the underlying code rather than assuming it is immaterial rounding.
+
+Turnover is computed as the rebalance-to-rebalance sum of absolute non-cash weight changes (i.e., $\tau_k = \sum_{i \in S} |w_{k,i} - w_{k-1,i}|$), consistent with the transaction-cost model in Section~6. This treats the cash sleeve as a funding source/sink with no direct trading fee.
+
+\begin{table}[htbp]
+\centering
+\caption{Mean rebalance-to-rebalance sum of absolute non-cash weight changes (turnover proxy; cash sleeve excluded) at 0 bps transaction costs, reported across risk budgets and rebalancing frequencies.}
+\label{tab:turnover}
+\begin{tabular}{llrrrrr}
+\toprule
+Risk & Frequency & S\&P BnH & Volatility & MAD & IQR & P95 \\
+\midrule
+5.00\%  & 1mo & 0.000 & 0.587 & 0.614 & 0.766 & 0.665 \\
+5.00\%  & 3mo & 0.000 & 0.497 & 0.517 & 0.620 & 0.564 \\
+5.00\%  & 6mo & 0.000 & 0.391 & 0.473 & 0.596 & 0.484 \\
+5.00\%  & 1y  & 0.000 & 0.392 & 0.360 & 0.567 & 0.393 \\
+10.00\% & 1mo & 0.000 & 0.857 & 0.883 & 0.929 & 0.908 \\
+10.00\% & 3mo & 0.000 & 0.785 & 0.811 & 0.871 & 0.824 \\
+10.00\% & 6mo & 0.000 & 0.691 & 0.681 & 0.748 & 0.672 \\
+10.00\% & 1y  & 0.000 & 0.507 & 0.548 & 0.618 & 0.572 \\
+15.00\% & 1mo & 0.000 & 0.956 & 0.965 & 0.984 & 0.982 \\
+15.00\% & 3mo & 0.000 & 0.902 & 0.910 & 0.939 & 0.916 \\
+15.00\% & 6mo & 0.000 & 0.794 & 0.812 & 0.829 & 0.818 \\
+15.00\% & 1y  & 0.000 & 0.649 & 0.715 & 0.658 & 0.653 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\paragraph{Discussion.} The monotone decline in turnover from 1-month to 1-year rebalancing provides a direct mechanism for why higher-frequency strategies can lag once proportional costs are introduced: the same cost rate is applied to a larger cumulative traded notional when turnover is persistently high (Tables~\ref{tab:turnover} and 3, and Figure~11).
+
+Two patterns in Table~\ref{tab:turnover} are especially relevant for the cost analysis. First, frequency dominates: even when turnover per rebalance is only modestly higher at 1-month than at 1-year, there are many more trading dates. A simple back-of-the-envelope annualized ``turnover intensity'' is $m\bar{\tau}$, where $m \in \{12, 4, 2, 1\}$ is the number of rebalances per year and $\bar{\tau}$ is mean turnover per rebalance. At 10\% risk, the volatility strategy has $\bar{\tau} \approx 0.857$ at monthly rebalancing but $\bar{\tau} \approx 0.507$ at annual rebalancing; this implies roughly $12 \times 0.857 \approx 10.3$ turnover units per year versus $1 \times 0.507 \approx 0.5$ turnover units per year --- a roughly 20-fold relative difference. In absolute terms, this translates into only about 0.10\% versus 0.005\% of annual cost drag at a 1 bps proportional cost rate (rising to roughly 0.21\% versus 0.01\% at the 2 bps rate used elsewhere in the robustness analysis); both figures are individually small, and it is the relative multiplier across rebalancing frequencies, not the absolute drag at the lowest cost tier, that constitutes the mechanism illustrated here. Section~6 evaluates whether this relative gap compounds into an economically meaningful difference in net terminal wealth once realistic cost assumptions and the full backtest horizon are applied.
+
+Second, risk budget matters more at short rebalance intervals. At monthly rebalancing, allowing higher risk budgets leads to noticeably higher turnover (e.g., volatility: 0.587 at 5\% vs.\ 0.857 at 10\% vs.\ 0.956 at 15\%, a spread of 0.369). At annual rebalancing, the same cross-risk spread is smaller (e.g., volatility: 0.392 at 5\% vs.\ 0.507 at 10\% vs.\ 0.649 at 15\%, a spread of 0.257), suggesting that infrequent trading naturally limits how aggressively the optimizer can reposition.
+
+\paragraph{IQR turnover is systematically higher, not merely comparable.} Across nearly every cell in Table~\ref{tab:turnover}, IQR has the highest turnover among the four dispersion proxies, at times by a substantial relative margin --- for example, at 5\%/6mo, IQR turnover is 0.596 versus Volatility's 0.391 (roughly 52\% higher); at 5\%/1mo, IQR is 0.766 versus Volatility's 0.587 (roughly 30\% higher). This pattern is consistent with the calibration observation raised in the frictionless-results section: IQR also realizes higher volatility and higher terminal wealth than the other three proxies at the same nominal risk budget, which is consistent with the normal-approximation calibration (Section~3.6) producing a systematically looser realized constraint for IQR under fat-tailed daily returns. A proxy operating under a looser realized budget would be expected to both take more risk and trade more to do so, which is exactly the joint pattern observed here.
+
+This has a direct implication for Section~6: rather than assuming the transaction-cost penalty is comparable across volatility, MAD, IQR, and P95, this section instead flags IQR as the strategy most likely to bear a disproportionately larger cost penalty once proportional costs are applied, precisely because it is the highest-turnover proxy in nearly every cell of Table~\ref{tab:turnover}. Whether this pattern is confirmed --- and whether it is large enough to erode IQR's frictionless terminal-wealth advantage --- is addressed directly in Section~6.
+
+\paragraph{Practitioner takeaway.} Turnover is not just a diagnostic --- it is an input to net performance. A strategy that looks competitive at 0 bps can become unattractive once turnover is multiplied by a realistic trading-cost assumption, and this appears especially relevant for proxies, such as IQR, that combine higher frictionless returns with higher turnover.
+
+\subsection{Weight Distributions Through Time (10\% Risk Budget)}
+
+To isolate how the choice of dispersion proxy affects portfolio composition at a fixed risk budget, Figure~6 plots sector and cash weights over time for each strategy at a 10\% risk budget (0 bps, monthly rebalancing).
+
+\paragraph{Discussion.} Across strategies, the implementability constraints and the presence of a cash sleeve visibly limit extreme concentration, so the most salient differences tend to arise in (i) how aggressively the optimizer uses cash to satisfy the risk budget and (ii) how concentrated the sector mix becomes during particular regimes. In economic terms, the cash sleeve acts as the optimizer's ``risk dial'': when the estimated dispersion of risky assets rises, the optimizer can satisfy the risk budget by shifting weight into cash rather than by forcing extreme sector shorts (which are disallowed). This generates a natural interpretation of proxy differences. If a proxy treats a given episode as ``riskier'' (because of tail observations or a wider dispersion estimate), the optimizer tends to lean more heavily on cash and reduces active sector tilts; if a proxy is less sensitive, it tends to remain more fully invested and expresses risk through a larger risky allocation.
+
+The figures also emphasize a practical point about implementability: the portfolios rotate across sectors over time, but the rotations are smooth and bounded by the cap constraint. As a result, much of the cross-strategy variation is in how much active risk is taken (cash usage and concentration) rather than which sectors are held.
+
+\emph{[Figure 6. Sector and cash weights through time by strategy at a 10\% risk budget (0 bps, monthly rebalancing). Four panels: (a) Volatility, (b) MAD, (c) IQR, (d) P95. \textbf{Confirm the figure has four clearly labeled panels before finalizing --- the source caption text suggested a possible missing panel label/line break.}]}
+
+\subsection{Rebalance-Interval Allocation Dynamics (Stacked Weight Areas)}
+
+To visualize how rebalancing frequency shapes the allocation path directly, the paper plots stacked area charts of sector plus cash weights through time (each panel corresponds to a rebalance interval; areas sum to 100\%).
+
+\paragraph{Discussion.} The stacked-area panels illustrate that longer rebalance intervals tend to produce smoother weight paths between rebalances, but also more discrete step changes at rebalance dates. This matters for costs because proportional turnover models effectively charge for total traded notional rather than for ``smoothness'' per se.
+
+Two economic interpretations follow. First, higher-frequency strategies are exposed to estimation noise because they recalibrate on shorter samples, which can create churn even when the true opportunity set is stable. Second, lower-frequency strategies amortize estimation error over longer holds: they trade less often, but each trade can be larger because more drift accumulates between rebalances. In this sample, the rebalancing count appears to be the dominant driver of the gap in cumulative turnover intensity and therefore cost drag (Table~\ref{tab:turnover} and Figure~11).
+
+Taken together, the weight-path figures provide a visual bridge between the frictionless performance section and the transaction cost section: turnover and weight instability are the conduits through which costs impact terminal wealth. In this sample, these conduits are primarily controlled by the rebalance schedule, with IQR as a partial exception on the proxy dimension given its consistently elevated turnover documented above.
+
+\emph{[Figure 7. Rebalance interval = 1 month: sector and cash weights (sum to 100\%) over time by strategy at a 10\% annualized risk budget (0 bps).]}
+
+\emph{[Figure 8. Rebalance interval = 3 months: sector and cash weights (sum to 100\%) over time by strategy at a 10\% annualized risk budget (0 bps).]}
+
+\emph{[Figure 9. Rebalance interval = 6 months: sector and cash weights (sum to 100\%) over time by strategy at a 10\% annualized risk budget (0 bps).]}
+
+\emph{[Figure 10. Rebalance interval = 1 year: sector and cash weights (sum to 100\%) over time by strategy at a 10\% annualized risk budget (0 bps).]}
+
+\end{document}

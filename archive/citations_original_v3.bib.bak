@@ -1,0 +1,600 @@
+@book{Bogle2017,
+  author = {Bogle, John C.},
+  title = {The Little Book of Common Sense Investing: The Only Way to Guarantee Your Fair Share of Stock Market Returns},
+  publisher = {John Wiley \& Sons},
+  year = {2017},
+  edition = {10th Anniversary Edition},
+  address = {Hoboken, NJ}
+}
+
+@article{DeMiguel2009,
+  author = {DeMiguel, Victor and Garlappi, Lorenzo and Uppal, Raman},
+  title = {Optimal Versus Naive Diversification: How Inefficient is the 1/N Portfolio Strategy?},
+  journal = {Review of Financial Studies},
+  year = {2009},
+  volume = {22},
+  number = {5},
+  pages = {1915--1953},
+  doi = {10.1093/rfs/hhm075}
+}
+
+@article{Markowitz1952,
+  author = {Markowitz, Harry},
+  title = {Portfolio Selection},
+  journal = {Journal of Finance},
+  year = {1952},
+  volume = {7},
+  number = {1},
+  pages = {77--91},
+  doi = {10.1111/j.1540-6261.1952.tb01525.x}
+}
+
+@article{Sharpe1966,
+  author = {Sharpe, William F.},
+  title = {Mutual Fund Performance},
+  journal = {Journal of Business},
+  year = {1966},
+  volume = {39},
+  number = {1},
+  pages = {119--138},
+  doi = {10.1086/294846}
+}
+
+@article{Sharpe1994,
+  author = {Sharpe, William F.},
+  title = {The Sharpe Ratio},
+  journal = {Journal of Portfolio Management},
+  year = {1994},
+  volume = {21},
+  number = {1},
+  pages = {49--58},
+  doi = {10.3905/jpm.1994.409501}
+}
+
+@article{Konno1991,
+  author = {Konno, Hiroshi and Yamazaki, Hiroaki},
+  title = {Mean-Absolute Deviation Portfolio Optimization Model and Its Applications to Tokyo Stock Market},
+  journal = {Management Science},
+  year = {1991},
+  volume = {37},
+  number = {5},
+  pages = {519--531},
+  doi = {10.1287/mnsc.37.5.519}
+}
+
+@article{Mansini2014,
+  author = {Mansini, Renata and Ogryczak, Wlodzimierz and Speranza, M. Grazia},
+  title = {Twenty Years of Linear Programming Based Portfolio Optimization},
+  journal = {European Journal of Operational Research},
+  year = {2014},
+  volume = {234},
+  number = {2},
+  pages = {518--535},
+  doi = {10.1016/j.ejor.2013.08.035}
+}
+
+@article{Simaan1997,
+  author = {Simaan, Yusif},
+  title = {Estimation Risk in Portfolio Selection: The Mean Variance Model Versus the Mean Absolute Deviation Model},
+  journal = {Management Science},
+  year = {1997},
+  volume = {43},
+  number = {10},
+  pages = {1437--1446},
+  doi = {10.1287/mnsc.43.10.1437}
+}
+
+@article{Merton1980,
+  author = {Merton, Robert C.},
+  title = {On Estimating the Expected Return on the Market: An Exploratory Investigation},
+  journal = {Journal of Financial Economics},
+  year = {1980},
+  volume = {8},
+  number = {4},
+  pages = {323--361},
+  doi = {10.1016/0304-405X(80)90007-0}
+}
+
+@article{Best1975,
+  author = {Best, Michael J. and Grauer, Robert R.},
+  title = {On the Sensitivity of Mean-Variance-Efficient Portfolios to Changes in Asset Means: Some Analytical and Computational Results},
+  journal = {Review of Financial Studies},
+  year = {1991},
+  volume = {4},
+  number = {2},
+  pages = {315--342},
+  doi = {10.1093/rfs/4.2.315}
+}
+
+@article{Jobson1981,
+  author = {Jobson, J. D. and Korkie, Bob},
+  title = {Performance Hypothesis Testing with the Sharpe and Treynor Measures},
+  journal = {Journal of Finance},
+  year = {1981},
+  volume = {36},
+  number = {4},
+  pages = {888--908},
+  doi = {10.1111/j.1540-6261.1981.tb04891.x}
+}
+
+@article{Michaud1989,
+  author = {Michaud, Richard O.},
+  title = {The Markowitz Optimization Enigma: Is 'Optimized' Optimal?},
+  journal = {Financial Analysts Journal},
+  year = {1989},
+  volume = {45},
+  number = {1},
+  pages = {31--42},
+  doi = {10.2469/faj.v45.n1.31}
+}
+
+@article{Chopra1993,
+  author = {Chopra, Vijay K. and Ziemba, William T.},
+  title = {The Effect of Errors in Means, Variances, and Covariances on Optimal Portfolio Choice},
+  journal = {Journal of Portfolio Management},
+  year = {1993},
+  volume = {19},
+  number = {2},
+  pages = {6--11},
+  doi = {10.3905/jpm.1993.409440}
+}
+
+@article{Fama1993,
+  author = {Fama, Eugene F. and French, Kenneth R.},
+  title = {Common Risk Factors in the Returns on Stocks and Bonds},
+  journal = {Journal of Financial Economics},
+  year = {1993},
+  volume = {33},
+  number = {1},
+  pages = {3--56},
+  doi = {10.1016/0304-405X(93)90023-5}
+}
+
+@article{Benartzi2001,
+  author = {Benartzi, Shlomo and Thaler, Richard H.},
+  title = {Naive Diversification Strategies in Defined Contribution Saving Plans},
+  journal = {American Economic Review},
+  year = {2001},
+  volume = {91},
+  number = {1},
+  pages = {79--98},
+  doi = {10.1257/aer.91.1.79}
+}
+
+@article{Ledoit2003,
+  author = {Ledoit, Olivier and Wolf, Michael},
+  title = {Improved Estimation of the Covariance Matrix of Stock Returns with an Application to Portfolio Selection},
+  journal = {Journal of Empirical Finance},
+  year = {2003},
+  volume = {10},
+  number = {5},
+  pages = {603--621},
+  doi = {10.1016/S0927-5398(03)00007-0}
+}
+
+@article{Fabozzi2007,
+  author = {Fabozzi, Frank J. and Huang, Dashan and Zhou, Guofu},
+  title = {Robust Portfolios: Contributions from Operations Research and Finance},
+  journal = {Annals of Operations Research},
+  year = {2010},
+  volume = {176},
+  number = {1},
+  pages = {191--220},
+  doi = {10.1007/s10479-009-0515-6}
+}
+
+@article{Jagannathan2003,
+  author = {Jagannathan, Ravi and Ma, Tongshu},
+  title = {Risk Reduction in Large Portfolios: Why Imposing the Wrong Constraints Helps},
+  journal = {Journal of Finance},
+  year = {2003},
+  volume = {58},
+  number = {4},
+  pages = {1651--1683},
+  doi = {10.1111/1540-6261.00580}
+}
+
+@book{Fabozzi2002,
+  author = {Fabozzi, Frank J. and Kolm, Petter N. and Pachamanova, Dessislava A. and Focardi, Sergio M.},
+  title = {Robust Portfolio Optimization and Management},
+  publisher = {John Wiley \& Sons},
+  year = {2007},
+  address = {Hoboken, NJ}
+}
+
+@article{Grinold1999,
+  author = {Grinold, Richard C. and Kahn, Ronald N.},
+  title = {Active Portfolio Management: A Quantitative Approach for Producing Superior Returns and Controlling Risk},
+  journal = {McGraw-Hill},
+  year = {1999},
+  edition = {2nd}
+}
+
+@article{Sortino1994,
+  author = {Sortino, Frank A. and Price, Lee N.},
+  title = {Performance Measurement in a Downside Risk Framework},
+  journal = {Journal of Investing},
+  year = {1994},
+  volume = {3},
+  number = {3},
+  pages = {59--64},
+  doi = {10.3905/joi.3.3.59}
+}
+
+@article{Young1998,
+  author = {Young, Martin R.},
+  title = {A Minimax Portfolio Selection Rule with Linear Programming Solution},
+  journal = {Management Science},
+  year = {1998},
+  volume = {44},
+  number = {5},
+  pages = {673--683},
+  doi = {10.1287/mnsc.44.5.673}
+}
+
+@article{Rockafellar2000,
+  author = {Rockafellar, R. Tyrrell and Uryasev, Stanislav},
+  title = {Optimization of Conditional Value-at-Risk},
+  journal = {Journal of Risk},
+  year = {2000},
+  volume = {2},
+  pages = {21--41},
+  doi = {10.21314/JOR.2000.038}
+}
+
+@article{Speranza2012,
+  author = {Speranza, M. Grazia},
+  title = {Linear Programming Models for Portfolio Optimization},
+  journal = {Finance},
+  year = {1996},
+  volume = {14},
+  pages = {107--123}
+}
+
+@article{NovyMarx2016,
+  author = {Novy-Marx, Robert and Velikov, Mihail},
+  title = {A Taxonomy of Anomalies and Their Trading Costs},
+  journal = {Review of Financial Studies},
+  year = {2016},
+  volume = {29},
+  number = {1},
+  pages = {104--147},
+  doi = {10.1093/rfs/hhv063}
+}
+
+@article{Frazzini2013,
+  author = {Frazzini, Andrea and Israel, Ronen and Moskowitz, Tobias J.},
+  title = {Trading Costs of Asset Pricing Anomalies},
+  journal = {SSRN Electronic Journal},
+  year = {2012},
+  doi = {10.2139/ssrn.2294498}
+}
+
+@article{Carhart1997,
+  author = {Carhart, Mark M.},
+  title = {On Persistence in Mutual Fund Performance},
+  journal = {Journal of Finance},
+  year = {1997},
+  volume = {52},
+  number = {1},
+  pages = {57--82},
+  doi = {10.1111/j.1540-6261.1997.tb03808.x}
+}
+
+@article{French2008,
+  author = {French, Kenneth R.},
+  title = {Presidential Address: The Cost of Active Investing},
+  journal = {Journal of Finance},
+  year = {2008},
+  volume = {63},
+  number = {4},
+  pages = {1537--1573},
+  doi = {10.1111/j.1540-6261.2008.01368.x}
+}
+
+@article{Perold1988,
+  author = {Perold, Andr{\'e} F. and Sharpe, William F.},
+  title = {Dynamic Strategies for Asset Allocation},
+  journal = {Financial Analysts Journal},
+  year = {1988},
+  volume = {44},
+  number = {1},
+  pages = {16--27},
+  doi = {10.2469/faj.v44.n1.16}
+}
+
+@article{Calmar1991,
+  author = {Young, Terry W.},
+  title = {Calmar Ratio: A Smoother Tool},
+  journal = {Futures},
+  year = {1991},
+  volume = {20},
+  number = {1},
+  pages = {40}
+}
+
+@article{Tobin1958,
+  author = {Tobin, James},
+  title = {Liquidity Preference as Behavior Towards Risk},
+  journal = {The Review of Economic Studies},
+  year = {1958},
+  volume = {25},
+  number = {2},
+  pages = {65--86},
+  doi = {10.2307/2296205}
+}
+
+@article{Novy-Marx2016,
+  author = {Novy-Marx, Robert and Velikov, Mihail},
+  title = {A Taxonomy of Anomalies and Their Trading Costs},
+  journal = {Review of Financial Studies},
+  year = {2016},
+  volume = {29},
+  number = {1},
+  pages = {104--147},
+  doi = {10.1093/rfs/hhv063}
+}
+
+@article{Jorion1986,
+  author = {Jorion, Philippe},
+  title = {Bayes--Stein Estimation for Portfolio Analysis},
+  journal = {Journal of Financial and Quantitative Analysis},
+  year = {1986},
+  volume = {21},
+  number = {3},
+  pages = {279--292}
+}
+
+@article{Constantinides1986,
+  author = {Constantinides, George M.},
+  title = {Capital Market Equilibrium with Transaction Costs},
+  journal = {Journal of Political Economy},
+  year = {1986},
+  volume = {94},
+  number = {4},
+  pages = {842--862}
+}
+
+@article{Kyle1985,
+  author = {Kyle, Albert S.},
+  title = {Continuous Auctions and Insider Trading},
+  journal = {Econometrica},
+  year = {1985},
+  volume = {53},
+  number = {6},
+  pages = {1315--1335}
+}
+
+@article{Almgren2001,
+  author = {Almgren, Robert and Chriss, Neil},
+  title = {Optimal Execution of Portfolio Transactions},
+  journal = {Journal of Risk},
+  year = {2001},
+  volume = {3},
+  number = {2},
+  pages = {5--39}
+}
+
+@article{Garleanu2013,
+  author = {Garleanu, Nicolae and Pedersen, Lasse Heje},
+  title = {Dynamic Trading with Predictable Returns and Transaction Costs},
+  journal = {Journal of Finance},
+  year = {2013},
+  volume = {68},
+  number = {6},
+  pages = {2309--2340}
+}
+
+@article{White2000,
+  author = {White, Halbert},
+  title = {A Reality Check for Data Snooping},
+  journal = {Econometrica},
+  year = {2000},
+  volume = {68},
+  number = {5},
+  pages = {1097--1126}
+}
+
+@book{LopezdePrado2018,
+  author = {L{\'o}pez de Prado, Marcos},
+  title = {Advances in Financial Machine Learning},
+  publisher = {John Wiley \& Sons},
+  year = {2018},
+  address = {Hoboken, NJ}
+}
+
+@book{Campbell1997,
+  author = {Campbell, John Y. and Lo, Andrew W. and MacKinlay, A. Craig},
+  title = {The Econometrics of Financial Markets},
+  publisher = {Princeton University Press},
+  year = {1997},
+  address = {Princeton, NJ}
+}
+
+@book{Hull2018,
+  author = {Hull, John C.},
+  title = {Options, Futures, and Other Derivatives},
+  publisher = {Pearson},
+  year = {2018},
+  edition = {10}
+}
+
+@book{CasellaBerger2002,
+  author = {Casella, George and Berger, Roger L.},
+  title = {Statistical Inference},
+  publisher = {Duxbury},
+  year = {2002},
+  edition = {2}
+}
+
+% -------------------------
+
+
+
+
+
+@article{bestgrauer1991,
+  author  = {Best, Michael J. and Grauer, Robert R.},
+  title   = {On the Sensitivity of Mean-Variance-Efficient Portfolios to Changes in Asset Means: Some Analytical and Computational Results},
+  journal = {The Review of Financial Studies},
+  year    = {1991},
+  volume  = {4},
+  number  = {2},
+  pages   = {315--342}
+}
+
+@article{choprziemba1993,
+  author  = {Chopra, Vijay K. and Ziemba, William T.},
+  title   = {The Effect of Errors in Means, Variances, and Covariances on Optimal Portfolio Choice},
+  journal = {The Journal of Portfolio Management},
+  year    = {1993},
+  volume  = {19},
+  number  = {2},
+  pages   = {6--11}
+}
+
+
+
+
+
+@article{jagannathanma2003,
+  author  = {Jagannathan, Ravi and Ma, Tongshu},
+  title   = {Risk Reduction in Large Portfolios: Why Imposing the Wrong Constraints Helps},
+  journal = {The Journal of Finance},
+  year    = {2003},
+  volume  = {58},
+  number  = {4},
+  pages   = {1651--1683}
+}
+
+@article{ledoitwolf2003,
+  author  = {Ledoit, Olivier and Wolf, Michael},
+  title   = {Improved Estimation of the Covariance Matrix of Stock Returns with an Application to Portfolio Selection},
+  journal = {Journal of Empirical Finance},
+  year    = {2003},
+  volume  = {10},
+  number  = {5},
+  pages   = {603--621}
+}
+
+
+
+
+@article{konnoyamazaki1991,
+  author  = {Konno, Hiroshi and Yamazaki, Hiroaki},
+  title   = {Mean-Absolute Deviation Portfolio Optimization Model and Its Applications to {T}okyo Stock Market},
+  journal = {Management Science},
+  year    = {1991},
+  volume  = {37},
+  number  = {5},
+  pages   = {519--531}
+}
+
+
+
+
+
+
+
+@article{rockafellaruryasev2000,
+  author  = {Rockafellar, R. Tyrrell and Uryasev, Stanislav},
+  title   = {Optimization of Conditional Value-at-Risk},
+  journal = {Journal of Risk},
+  year    = {2000},
+  volume  = {2},
+  number  = {3},
+  pages   = {21--41}
+}
+
+@article{sortinoprice1994,
+  author  = {Sortino, Frank A. and Price, Lee N.},
+  title   = {Performance Measurement in a Downside Risk Framework},
+  journal = {The Journal of Investing},
+  year    = {1994},
+  volume  = {3},
+  number  = {3},
+  pages   = {59--64}
+}
+
+
+
+
+
+@article{almgrenchriss2001,
+  author  = {Almgren, Robert and Chriss, Neil},
+  title   = {Optimal Execution of Portfolio Transactions},
+  journal = {Journal of Risk},
+  year    = {2001},
+  volume  = {3},
+  pages   = {5--40}
+}
+
+@article{garleanupedersen2013,
+  author  = {G{\^a}rleanu, Nicolae and Pedersen, Lasse Heje},
+  title   = {Dynamic Trading with Predictable Returns and Transaction Costs},
+  journal = {The Journal of Finance},
+  year    = {2013},
+  volume  = {68},
+  number  = {6},
+  pages   = {2309--2340}
+}
+
+
+
+
+@article{banyai2024,
+  author  = {B\'{a}nyai, Attila and Tatay, Tibor and Thalmeiner, Gerg{\H{o}} and Pataki, L\'{a}szl\'{o}},
+  title   = {The Impact of Rebalancing Strategies on {ETF} Portfolio Performance},
+  journal = {Journal of Risk and Financial Management},
+  year    = {2024},
+  volume  = {17},
+  number  = {12},
+  pages   = {533},
+  doi     = {10.3390/jrfm17120533}
+}
+
+
+@article{jobsonkorkie1981,
+  author  = {Jobson, J. D. and Korkie, Bob M.},
+  title   = {Performance Hypothesis Testing with the {Sharpe} and {Treynor} Measures},
+  journal = {The Journal of Finance},
+  year    = {1981},
+  volume  = {36},
+  number  = {4},
+  pages   = {889--908}
+}
+
+
+@article{Cont2001,
+  author  = {Cont, Rama},
+  title   = {Empirical Properties of Asset Returns: Stylized Facts and Statistical Issues},
+  journal = {Quantitative Finance},
+  year    = {2001},
+  volume  = {1},
+  number  = {2},
+  pages   = {223--236},
+  doi     = {10.1088/1469-7688/1/2/304}
+}
+
+@article{DonohueYip2003,
+  author  = {Donohue, Christopher and Yip, Kenneth},
+  title   = {Optimal Portfolio Rebalancing with Transaction Costs},
+  journal = {Journal of Portfolio Management},
+  year    = {2003},
+  volume  = {29},
+  number  = {4},
+  pages   = {49--63},
+  doi     = {10.3905/jpm.2003.319894}
+}
+
+@article{DeMiguelNorms2009,
+  author  = {DeMiguel, Victor and Garlappi, Lorenzo and Nogales, Francisco J. and Uppal, Raman},
+  title   = {A Generalized Approach to Portfolio Optimization: Improving Performance by Constraining Portfolio Norms},
+  journal = {Management Science},
+  year    = {2009},
+  volume  = {55},
+  number  = {5},
+  pages   = {798--812},
+  doi     = {10.1287/mnsc.1080.0986}
+}
+

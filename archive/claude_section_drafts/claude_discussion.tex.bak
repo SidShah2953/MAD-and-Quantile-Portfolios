@@ -1,0 +1,91 @@
+\documentclass[a4paper]{article}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{geometry}
+\usepackage{amsmath}
+\usepackage{natbib}
+\geometry{margin=1in}
+
+\begin{document}
+
+\section{Discussion}
+
+This study highlights a practical hierarchy for portfolio construction in a constrained, implementable optimizer. The empirical results are best interpreted not as a ``horse race'' among dispersion formulas, but as evidence about which design levers matter most in a realistic workflow that repeatedly (i) estimates inputs from finite windows, (ii) solves a constrained optimization problem, and (iii) trades to targets under costs.
+
+Three high-level takeaways summarize the discussion.
+
+\begin{itemize}
+    \item \textbf{Constraints and estimation windows are first-order.} Long-only, fully-invested portfolios with position limits can materially stabilize optimization \citep{jagannathanma2003}. In this setting, the estimation-window design (here: ``previous holding period'') and rebalance frequency jointly determine how noisy inputs are and how often the optimizer is allowed to react, and these effects can dominate incremental changes in the dispersion proxy.
+    \item \textbf{Risk-proxy mappings are useful but imperfect.} Calibrating MAD/IQR/P95 budgets to an annualized ``risk target'' relies on distributional approximations (here: normal multiples). When returns are non-normal or time-varying, different proxies can bind in different regimes, so cross-proxy comparisons should be read as comparisons of implementations rather than as statements of dominance of one risk concept over another. As documented in Sections~4--6, this is not merely a theoretical caveat: IQR realizes systematically higher volatility, higher turnover, and higher relative transaction-cost drag than the other three proxies at the same nominal risk budget, consistent with its normal-approximation-implied constraint binding more loosely than intended under fat-tailed daily returns.
+    \item \textbf{Turnover is the primary channel for costs.} The transaction-cost robustness analysis reinforces the classic point that active policies must be evaluated net of trading frictions \citep{french2008}. In these sector-ETF optimizations, frequent re-optimization mechanically increases traded notional, and even 1--2 bps can compound into economically meaningful drag.
+\end{itemize}
+
+\subsection{Why Proxy Differences Compress --- But Do Not Fully Disappear --- Under Constraints}
+
+In unconstrained settings, volatility and robust dispersion measures can imply meaningfully different optimal solutions because the constraint set can ``tilt'' the optimizer away from tail-sensitive estimates. In this paper's constrained setting, several mechanisms compress those differences, though, as noted above, they do not eliminate a consistent, if economically modest, IQR-specific pattern.
+
+\begin{itemize}
+    \item \textbf{The cash sleeve acts as a shared risk valve.} Because cash is available and earns a deterministic 0 return, every proxy can satisfy its risk budget by adjusting the risky share (sector ETFs) versus cash. If one proxy estimates an episode as riskier, the optimizer can respond by increasing cash rather than by producing extreme offsetting sector positions (which are disallowed). This induces a common pattern: proxy differences show up primarily in cash usage and concentration intensity.
+    \item \textbf{The max-weight cap prevents ``error-maximizing'' concentration.} A cap such as $w_{\max} = 25\%$ limits the optimizer's ability to express small input differences via extreme positions. As a result, distinct dispersion constraints can lead to similar feasible corner solutions, especially at longer horizons where input estimates are less noisy.
+    \item \textbf{The objective is mean return with noisy estimates.} Because $\hat{\mu}$ is estimated from short, rolling daily windows (equal to the holding period), the optimization is often driven by estimation noise in $\hat{\mu}$ subject to a binding risk constraint. Under this structure, changing the risk proxy can shift which constraint binds and how much cash is used, but it does not necessarily create a persistent ``alpha'' mechanism.
+    \item \textbf{The normal-approximation calibration is an imperfect equalizer.} The mechanisms above compress differences \emph{conditional on} each proxy's constraint being calibrated to an equivalent effective risk level. Because that calibration relies on a normal approximation (Section~3.6), it does not guarantee equal realized risk-taking across proxies when daily returns are fat-tailed. This is the most likely explanation for why IQR, specifically, consistently realizes more risk, more turnover, and a larger relative cost penalty than the other three proxies, even though the compression mechanisms above hold for all four.
+\end{itemize}
+
+\subsection{Design Choices vs.\ Empirical Findings}
+
+Two experimental design choices drive much of the cross-frequency behavior. First, the estimation window equals the immediately prior holding period, so higher-frequency strategies use shorter samples to estimate inputs. This makes both $\hat{\mu}$ and dispersion estimates more variable, increasing the probability of frequent reallocations. Second, identical implementability constraints apply to all proxies (long-only, full investment, a sector-only cap, and an explicit cash sleeve), which intentionally isolates the effect of changing the dispersion proxy but also tends to push solutions toward similar feasible allocations.
+
+An implication is that the paper's ``rebalance frequency dominates'' finding should be read as a joint statement about (i) rebalance frequency and (ii) the specific information set induced by the estimation window (see also the discussion of this confound in Section~3.7.3). Alternative window choices (e.g., a fixed-length trailing window independent of holding period) could change the frequency comparison by decoupling ``how often you trade'' from ``how much data you estimate with.''
+
+\subsection{Regime Dependence and Economic Interpretation}
+
+While the paper does not run a formal subperiod attribution, the largest shifts in allocations and turnover occur in well-known stress episodes (e.g., the early-2000s drawdown, the 2008--09 crisis, and 2020). In such regimes, robust proxies can dampen the influence of a handful of extreme daily observations inside the dispersion constraint, which tends to translate into higher cash allocations and (in some cases) less aggressive sector rotation.
+
+However, in this constrained sector-ETF setting, the dominant driver of net outcomes remains the rebalance schedule and the turnover it induces. Robust dispersion proxies therefore function primarily as implementation tools --- a way to reduce tail sensitivity of the risk constraint --- rather than as a standalone source of persistent outperformance.
+
+\subsection{Practical Implementation Guidance}
+
+For a practitioner deciding how to operationalize a constrained optimizer of this type, the results suggest a pragmatic sequence.
+
+\begin{itemize}
+    \item \textbf{Pick a rebalance policy that is cost-aware first.} Start with a frequency that is operationally feasible and consistent with expected trading frictions; use turnover and a cost model as primary diagnostics.
+    \item \textbf{Choose an estimation window intentionally.} If the goal is stability, consider decoupling the window length from the holding period (e.g., using a longer trailing window but trading less frequently).
+    \item \textbf{Then tune the risk proxy, with an eye on realized (not just nominal) risk.} MAD/IQR/P95 can be valuable if risk budgets are intended to be robust to rare shocks, but proxy choice is unlikely to rescue an otherwise high-churn process. If IQR is used, monitor realized volatility and turnover against the other proxies' realized levels, since the calibration mapping used here does not guarantee identical realized risk-taking across proxies.
+\end{itemize}
+
+\subsection{Limitations and Robustness Checks}
+
+There are several limitations worth emphasizing, both to frame the conclusions appropriately and to clarify which extensions are most likely to change the results.
+
+\begin{itemize}
+    \item \textbf{Universe and scope.} Results are for a narrow and interpretable sector-ETF universe under long-only, fully-invested constraints with a sector-only cap and a cash sleeve; findings may not generalize to broader universes, leverage, shorting, or factor portfolios.
+    \item \textbf{Expected return estimation.} Optimized portfolios are sensitive to expected return estimates \citep{merton1980}. Using a raw rolling mean of daily returns is intentionally transparent but noisy; shrinkage/regularized mean estimators, Bayesian approaches, or signal-combination frameworks could reduce churn and potentially change the relative performance of rebalance frequencies.
+    \item \textbf{Covariance and dependence structure.} The volatility strategy uses a sample covariance estimator in each window; results may differ under shrinkage covariance estimators or regime-dependent models \citep{ledoitwolf2003}. Likewise, the square-root-of-time scaling assumes weak dependence; volatility clustering and serial correlation can cause realized annualization to deviate from $\sqrt{252}$ scaling.
+    \item \textbf{Risk-budget calibration across measures.} The proxy-to-proxy mapping uses normal multipliers to set comparable constraint levels. This is a pragmatic calibration, not a structural truth; when distributions exhibit skewness/kurtosis, the mapping can cause one proxy to bind more tightly --- or, as observed for IQR in this sample, more loosely --- than another in specific regimes, directly affecting cash usage, turnover, and the cost sensitivity documented in Section~6.
+    \item \textbf{Transaction cost model.} Proportional costs are a stylized proxy for spreads and frictions. A more refined model could incorporate time-varying spreads, volatility-dependent execution costs, and market impact that grows nonlinearly with traded notional \citep{almgrenchriss2001,kyle1985}. The current model is best viewed as a sensitivity analysis that isolates the role of turnover.
+    \item \textbf{Cash yield and taxes.} The cash sleeve earns 0, and the analysis ignores taxes. In practice, cash yields can materially affect the attractiveness of de-risking, and after-tax turnover can amplify the cost disadvantage of high-frequency trading.
+    \item \textbf{Robustness to alternative timelines.} The strict no-look-ahead design is a strength, but other implementable variants exist (e.g., overlapping estimation windows, delayed execution, or using end-of-day signals with next-day implementation). These can affect both turnover and realized performance.
+    \item \textbf{Additional robustness checks (natural extensions).} Three particularly relevant checks are (i) decoupling the estimation-window length from the holding period (e.g., a fixed 6- or 12-month trailing window regardless of rebalance frequency), to test whether the ``rebalance frequency dominates'' finding survives independently of the estimation-noise confound flagged in Section~3.7.3; (ii) penalizing turnover explicitly in the objective (or adding trading bands/no-trade regions) to test whether the cost sensitivity --- particularly IQR's --- can be mitigated mechanically; and (iii) varying the cap $w_{\max}$ and the presence/return of cash to quantify how much of the proxy similarity is driven by feasible-set design.
+\end{itemize}
+
+\subsection{Economic vs.\ Statistical Significance}
+
+The paper primarily focuses on economic significance: whether a strategy's edge survives implementability constraints and trading frictions, and whether differences are large enough to matter in terminal wealth, drawdowns, realized risk, and turnover. This emphasis is deliberate because small changes in compounded wealth over multi-decade samples can be economically meaningful even when conventional statistical tests are underpowered.
+
+Statistical significance is more difficult in portfolio backtests because returns are time-dependent and the effective sample size can be small, especially at low rebalancing frequencies where there are few non-overlapping holding periods. In addition, repeated evaluation over a grid of configurations (risk budgets, frequencies, proxies) introduces a multiple-comparisons/data-snooping concern \citep{lopezdeprado2018,white2000}.
+
+A publication-grade extension would therefore report uncertainty using block-resampling methods over holding periods (or other dependence-aware resampling) and would test differences in risk-adjusted performance using measures aligned to the stated objective. For example, one could report tests on differences in Sharpe-like ratios defined on mean excess returns \citep{jobsonkorkie1981} (while acknowledging that the paper's main ratio uses CAGR/AnnVol for interpretability over long horizons). More generally, the correct inference target depends on the investor's utility and horizon: what matters is not whether one proxy ``wins'' a t-test, but whether the improvement is stable, implementable, and robust to plausible perturbations in estimation and costs.
+
+\subsection{Hypothesis Evaluation}
+
+The evidence across the 0 bps results (Section~4), the weight/turnover diagnostics (Section~5), and the transaction-cost robustness analysis (Section~6) supports a unified empirical takeaway, restated below to reflect the IQR-specific pattern documented across those sections.
+
+\paragraph{Hypothesis 1 (frequency dominates).} Rebalancing frequency and the information set implied by the estimation-window design are first-order determinants of outcomes. Intermediate rebalance intervals (notably 6 months in this sample) often deliver stronger frictionless terminal wealth than shorter intervals, plausibly because the longer estimation window reduces estimation noise in $\hat{\mu}$ and the risk constraint, while less frequent trading reduces churn; this holds within the shared implementability constraints (full investment, a sector cap, and an explicit cash sleeve) applied to all strategies.
+
+\paragraph{Hypothesis 2 (proxy choice is second-order, but not negligible, under implementability constraints).} Once long-only, full investment, a sector cap, and an explicit cash sleeve are imposed, changing the dispersion proxy typically affects allocations through cash usage and mild concentration shifts rather than through radically different sector exposures. Across many (risk, frequency) cells, realized outcomes are broadly similar across volatility, MAD, IQR, and P95, especially at longer horizons, and in every case the rebalance-frequency effect is larger than the proxy effect. However, this should not be read as full equivalence: IQR consistently realizes higher volatility, higher turnover, and a larger relative transaction-cost penalty than the other three proxies at the same nominal risk budget (Sections~4--6), a pattern attributable to the normal-approximation calibration rather than to a genuine advantage of the IQR risk concept. Proxy choice is therefore second-order in magnitude relative to rebalancing frequency, but is not statistically or economically inert.
+
+\paragraph{Hypothesis 3 (turnover explains cost sensitivity).} Because the cost model is proportional to turnover, net performance under costs is largely explained by turnover intensity. Higher-frequency strategies exhibit persistently larger cumulative traded notional, which explains why even low single-digit basis-point costs can materially change net rankings; the same mechanism explains why IQR, as the highest-turnover proxy, also exhibits the largest relative cost drag at every rebalancing frequency tested.
+
+For exposition, the 10\% risk budget is treated as a representative ``medium'' case when illustrating allocation paths and cost drag, while retaining the full (risk, frequency, strategy) grid in the summary and turnover tables.
+
+\end{document}

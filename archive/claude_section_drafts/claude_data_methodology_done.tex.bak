@@ -1,0 +1,229 @@
+\documentclass[a4paper]{article}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{geometry}
+\usepackage{amsmath}
+\usepackage{natbib}
+\geometry{margin=1in}
+
+\begin{document}
+
+\section{Data and Methodology}
+
+\subsection{Data Used and Collected}
+
+This paper studies a liquid and interpretable U.S. equity universe consisting of nine Select Sector SPDR ETFs:
+
+\begin{enumerate}
+    \item XLB (Materials)
+    \item XLE (Energy)
+    \item XLF (Financials)
+    \item XLI (Industrials)
+    \item XLK (Technology)
+    \item XLP (Consumer Staples)
+    \item XLU (Utilities)
+    \item XLV (Health Care)
+    \item XLY (Consumer Discretionary)
+\end{enumerate}
+
+As these nine ETFs have been in existence for the entire test period, the portfolio universe is restricted to them. Portfolio weights are chosen over this nine-asset sector universe. As a benchmark, the S\&P 500 index (\^{}GSPC) is used.
+
+In addition, the optimizer is allowed to hold residual wealth in a cash-equivalent sleeve (CSH) with a daily return of 0. This makes cash an explicit asset in the feasible set but does not change the risky-asset universe.
+
+Daily adjusted-close price data are collected from Yahoo Finance and merged into a single panel dataset. The sample runs from 4 January 1999 through 30 December 2025 --- just under 27 years (26.99 years) of daily data. Let $P_{t,i}$ denote the adjusted close price for asset $i$ on day $t$. The daily simple return is defined as
+\begin{equation}
+    r_{t,i} \triangleq \frac{P_{t,i}}{P_{t-1,i}} - 1.
+    \label{eq:daily_return}
+\end{equation}
+Arithmetic returns are used throughout to match the backtest implementation.
+
+\paragraph{Data and return-definition note.} Adjusted close prices reflect splits and distributions as provided by the vendor; results therefore inherit vendor conventions and any associated data-quality issues. The analysis does not model taxes or borrowing/short-rebate costs. The cash sleeve is modeled as a zero-return instrument for the entire sample; over 1999--2025, realized short-term rates varied substantially (roughly 5--6\% in 2000 and 2006--2007, near zero for extended periods in 2009--2015 and 2020--2021, and near 5\% again in 2023--2024). A flat zero return therefore understates the opportunity cost of de-risking into cash during high-rate periods, which is a relevant simplification given that binding risk budgets in this design push weight into the cash sleeve. This assumption is treated as a limitation of the current build rather than a claim that cash returns are economically negligible; a natural robustness extension is to replace the zero-return assumption with realized short-term Treasury bill returns.
+
+\subsection{Returns and Period Construction}
+
+Daily returns are aggregated into non-overlapping holding periods according to the chosen rebalancing schedule (1 month, 3 months, 6 months, 1 year). For each holding period, portfolio performance is computed by applying the period's weights to daily returns and compounding within the period. These non-overlapping periods are referred to as holding periods (i.e., rebalance intervals).
+
+\subsection{Risk Measures}
+
+All risk constraints are applied to dispersion computed on daily portfolio returns within the estimation window $\{r_{p,t}\}_{t=1}^{T}$.
+
+\subsubsection{Volatility (Standard Deviation)}
+
+This paper uses the sample standard deviation of daily portfolio returns as the classical variance-based dispersion proxy,
+\begin{equation}
+    \sigma(r_p) \triangleq \sqrt{\mathrm{Var}(r_p)}.
+    \label{eq:vol}
+\end{equation}
+
+\subsubsection{Mean Absolute Deviation (MAD)}
+
+MAD replaces squared deviations with absolute deviations. For a return series $r_p$ with mean $E[r_p]$, the population MAD is
+\begin{equation}
+    \mathrm{MAD}(r_p) \triangleq E\big[\,|r_p - E[r_p]|\,\big],
+    \label{eq:mad}
+\end{equation}
+with the obvious sample analog used in implementation \citep{konnoyamazaki1991}.
+
+\subsubsection{Interquartile Range (IQR)}
+
+The IQR summarizes central dispersion via the difference between the 75th and 25th percentiles of daily returns,
+\begin{equation}
+    \mathrm{IQR}(r_p) \triangleq Q_3(r_p) - Q_1(r_p).
+    \label{eq:iqr}
+\end{equation}
+
+\subsubsection{Central 95\% Range (``P95'')}
+
+As a wider central-dispersion proxy, this paper uses the central 95\% range between the 97.5th and 2.5th percentiles of daily returns (labeled ``P95'' in prose, and denoted $\mathrm{CR95}$ in equations and tables),
+\begin{equation}
+    \mathrm{CR95}(r_p) \triangleq Q_{0.975}(r_p) - Q_{0.025}(r_p).
+    \label{eq:cr95}
+\end{equation}
+
+\subsection{Implementation Details and Constraints}
+
+\subsubsection{Notation}
+
+Let $S$ denote the set of nine sector ETFs, and let $\mathrm{CSH}$ denote a cash-equivalent asset with daily return $r_{\mathrm{CSH},t} = 0$. The implementation uses an explicit $N=10$-asset return vector $r_t \in \mathbb{R}^N$ that stacks the nine sector-ETF returns and the cash return. A portfolio is characterized by weights $w \in \mathbb{R}^N$, producing daily portfolio returns $r_{p,t} = w^\top r_t$.
+
+\subsubsection{Implementable Constraints}
+
+Portfolios are constrained to be long-only and fully invested across the sector ETFs and cash:
+\begin{align}
+    \sum_{i=1}^{N} w_i &= 1, \label{eq:fullinvest} \\
+    w_i &\geq 0 \quad \forall i. \label{eq:longonly}
+\end{align}
+A maximum allocation constraint is imposed on sector ETFs only, to prevent extreme concentration in any single sector:
+\begin{equation}
+    0 \leq w_i \leq w_{\max} \quad \forall i \in S, \qquad 0 \leq w_{\mathrm{CSH}} \leq 1.
+    \label{eq:capconstraint}
+\end{equation}
+In the implementation used for the paper build, sector-ETF weights are capped at $w_{\max} = 25\%$; this level was chosen to allow meaningful sector concentration relative to an equal-weighted 11.1\% baseline across the nine sectors, while still preventing any single sector from dominating the portfolio. The residual weight is held in cash via the full-investment constraint.
+
+\paragraph{Cash modeling assumption.} The feasible set includes a cash-equivalent asset (CSH) with a daily return of 0 to allow the optimizer to de-risk by allocating to cash. This implies no earned interest on idle cash; cash is treated purely as a risk-reduction instrument. Consistent with this assumption, the risk-free rate is set to zero when reporting risk-adjusted ratios. See Section 3.1 for a discussion of this assumption as a limitation of the current build.
+
+\subsubsection{Optimization Objective and Portfolio Problems}
+
+For each rebalance date, expected returns $\hat{\mu}$ are estimated as mean daily returns over the immediately prior estimation window, and weights are chosen to maximize $\hat{\mu}^\top w$ subject to a risk budget.
+
+\paragraph{Solver.} Constrained nonlinear optimization is solved using SciPy's SLSQP routine.
+
+\subsection{Portfolio Optimization Problems}
+
+For each rebalance date, weights are chosen to maximize estimated mean return subject to a dispersion budget and the implementability constraints in Equations~\eqref{eq:fullinvest}--\eqref{eq:capconstraint}.
+
+\paragraph{Volatility-constrained portfolio.}
+\begin{align}
+    \max_w \quad & \hat{\mu}^\top w \label{eq:vol_obj} \\
+    \text{s.t.} \quad & \sqrt{w^\top \hat{\Sigma} w} \leq \sigma_{\max}, \label{eq:vol_constraint} \\
+    & \sum_{i=1}^{N} w_i = 1, \quad w_i \geq 0 \; \forall i, \quad w_i \leq w_{\max} \; \forall i \in S. \label{eq:vol_feasible}
+\end{align}
+
+\paragraph{MAD-constrained portfolio.} Define the sample MAD of portfolio returns over the estimation window; then solve
+\begin{align}
+    \max_w \quad & \hat{\mu}^\top w \label{eq:mad_obj} \\
+    \text{s.t.} \quad & \mathrm{MAD}(\{w^\top r_t\}) \leq \mathrm{MAD}_{\max}, \label{eq:mad_constraint} \\
+    & \sum_{i=1}^{N} w_i = 1, \quad w_i \geq 0 \; \forall i, \quad w_i \leq w_{\max} \; \forall i \in S. \label{eq:mad_feasible}
+\end{align}
+
+\paragraph{IQR-constrained portfolio.} Define the sample IQR of portfolio returns over the estimation window; then solve
+\begin{align}
+    \max_w \quad & \hat{\mu}^\top w \label{eq:iqr_obj} \\
+    \text{s.t.} \quad & \mathrm{IQR}(\{w^\top r_t\}) \leq \mathrm{IQR}_{\max}, \label{eq:iqr_constraint} \\
+    & \sum_{i=1}^{N} w_i = 1, \quad w_i \geq 0 \; \forall i, \quad w_i \leq w_{\max} \; \forall i \in S. \label{eq:iqr_feasible}
+\end{align}
+
+\paragraph{P95-constrained portfolio.} The central-95\%-range-constrained problem is defined analogously, replacing the constraint in Equation~\eqref{eq:iqr_constraint} with $\mathrm{CR95}(\{w^\top r_t\}) \leq \mathrm{CR95}_{\max}$, subject to the same feasibility set.
+
+\subsection{Risk Budget Calibration Across Measures}
+
+Risk budgets are parameterized at an annualized scale and mapped to measure-specific constraints, allowing different dispersion proxies to be compared under a common target risk level.
+
+\paragraph{Annual-to-daily risk scaling (to ensure comparability across rebalancing schedules).} All risk constraints are applied to risk computed on daily portfolio returns within the estimation window. Let $\sigma^{\mathrm{ann}}_{\max}$ denote the annualized risk budget (5\%, 10\%, 15\%). This is converted into a daily target via the square-root-of-time rule,
+\begin{equation}
+    \sigma^{\mathrm{day}}_{\max} \triangleq \frac{\sigma^{\mathrm{ann}}_{\max}}{\sqrt{252}},
+    \label{eq:daily_scaling}
+\end{equation}
+which follows from the variance-additivity of (approximately) uncorrelated daily returns under standard modeling assumptions \citep{campbell1997,hull2018}. The optimizer is then constrained using risk functions computed in daily units. This design fixes the annualized risk budget across rebalancing frequencies while still using only information available at each rebalance.
+
+\paragraph{Measure-to-measure calibration (normal approximation).} To place MAD and quantile-range constraints on a scale comparable to volatility, normal-approximation mappings are applied to daily returns. Under a normal model, these dispersion measures are fixed multiples of $\sigma$ and can be expressed in closed form using standard normal quantiles \citep{casellaberger2002}:
+\begin{align}
+    \mathrm{MAD}^{\mathrm{day}}_{\max} &\triangleq \sigma^{\mathrm{day}}_{\max} \sqrt{\frac{2}{\pi}}, \label{eq:mad_calib} \\
+    \mathrm{IQR}^{\mathrm{day}}_{\max} &\triangleq 2\, \sigma^{\mathrm{day}}_{\max} \, \Phi^{-1}(0.75) \approx 1.349\, \sigma^{\mathrm{day}}_{\max}, \label{eq:iqr_calib} \\
+    \mathrm{CR95}^{\mathrm{day}}_{\max} &\triangleq 2\, \sigma^{\mathrm{day}}_{\max} \, \Phi^{-1}(0.975) \approx 3.92\, \sigma^{\mathrm{day}}_{\max}. \label{eq:cr95_calib}
+\end{align}
+These mappings are used only to fix a common \emph{starting} scale across proxies at each risk budget; they do not assume that realized daily returns are normally distributed, and realized dispersion measures are reported directly rather than inferred from this mapping. Indeed, to the extent that daily sector-ETF returns exhibit fat tails (as illustrated in Section~1's motivating evidence), realized MAD, IQR, and P95 values are expected to diverge from their normal-implied levels under the volatility-equivalent budget; this divergence is itself an informative empirical outcome of the design rather than a shortcoming of the calibration.
+
+\paragraph{Annualization of reported dispersion measures.} For reporting, realized dispersion measures computed on daily returns are annualized using the square-root-of-time rule, as for volatility. For example, $\mathrm{AnnMAD} = \sqrt{252}\, \mathrm{MAD}^{\mathrm{day}}$; the same scaling is applied to IQR and the central 95\% range. This scaling is exact for standard deviation under i.i.d.\ daily returns, but is only an approximation for quantile-based measures such as IQR and CR95, whose annualization relies on the aggregated return distribution behaving approximately normally at the annual horizon rather than on an exact scaling law. Reported annualized IQR and P95 values should therefore be interpreted as approximate, comparable-scale summaries rather than exact transformations.
+
+\subsection{Backtest Design}
+
+\subsubsection{Rebalancing Schedules}
+
+Rebalancing schedules of 1 month, 3 months, 6 months, and 1 year are evaluated. Each schedule defines a sequence of non-overlapping holding periods.
+
+\subsubsection{No-Look-Ahead Timeline}
+
+This study enforces a strict information timeline:
+\begin{enumerate}
+    \item At the start of holding period $k$, estimate $\hat{\mu}$ and risk inputs only from daily returns in the immediately prior period $k-1$.
+    \item Solve the optimization problem to obtain weights $w_k$.
+    \item Apply $w_k$ to realized daily returns within period $k$ to compute performance.
+\end{enumerate}
+This design ensures that weights for period $k$ do not use any return information from within period $k$.
+
+Because the estimation window is defined as the immediately prior holding period, the estimation window length equals the holding period length for each rebalancing schedule.
+
+\paragraph{Rebalance-day mechanics.} Weights $w_k$ become effective at the start of period $k$; proportional transaction costs (when modeled) are applied immediately before earning period-$k$ returns.
+
+\emph{[Figure 2. Backtest timeline. Inputs for period $k$ weights are estimated using only period $k-1$ returns; weights are then held during period $k$.]}
+
+\subsubsection{Estimation Window Length and Rebalancing Frequency}
+
+Tying the estimation window to the holding period, as described above, means that shorter rebalancing schedules are estimated from correspondingly shorter return histories --- for example, the 1-month schedule estimates all risk measures from roughly 21 daily observations. This is a deliberate design choice: it keeps the estimation window strictly aligned with the information an investor would actually have accumulated since the last rebalance, avoiding an arbitrary separate choice of lookback length. However, it also means that quantile-based measures, and P95 in particular, are estimated with substantial noise at short windows, since a 2.5th/97.5th-percentile estimate from 21 observations is close to the sample minimum and maximum. This raises a specific concern for interpreting this paper's central finding: if rebalancing frequency appears to dominate risk-proxy choice partly because short-window quantile estimates become unstable or degenerate, that would be an estimation-noise artifact rather than a genuine finding that the proxies are economically interchangeable at high rebalance frequency. This paper treats the coupling of window length to holding period as a transparent, implementable baseline design, and flags the decoupling of estimation-window length from rebalancing frequency (e.g., using a fixed lookback regardless of holding-period length) as an important robustness check for disentangling these two explanations.
+
+\subsubsection{Transaction Costs and Turnover}
+
+This paper models proportional transaction costs that scale with turnover. Let $w_k$ denote weights at rebalance $k$; define charged turnover (total traded notional in risky assets as a fraction of portfolio value) as
+\begin{equation}
+    \tau_k \triangleq \sum_{i \in S} |w_{k,i} - w_{k-1,i}|,
+    \label{eq:turnover}
+\end{equation}
+where $S$ is the set of sector ETFs (excluding the cash sleeve CSH). This corresponds to charging a one-way fee per trade on risky assets while treating the cash leg as free: reallocations between cash and a risky asset incur a one-way fee, whereas reallocations between risky assets incur both a sell and a buy fee.
+
+For a transaction cost rate $c$ in basis points (bps), a rebalance-time cost proportional to traded notional is applied. In the baseline robustness analysis, $c \in \{0, 1, 2\}$ bps is used (equivalently 0.00\%, 0.01\%, 0.02\% per unit traded). The rebalance haircut is
+\begin{equation}
+    \mathrm{Cost}_k \triangleq c\, \tau_k\, V_{k^-},
+    \label{eq:cost}
+\end{equation}
+where $V_{k^-}$ is portfolio value immediately before rebalancing. When the cash sleeve is absent (or fixed at zero), buys and sells in risky assets match in aggregate, and the corresponding one-way risky-asset turnover is $\tfrac{1}{2}\tau_k$.
+
+\subsection{Performance Metrics}
+
+Performance is evaluated using both level and risk-adjusted measures.
+
+\subsubsection{Terminal Wealth and Portfolio Value}
+
+Let $V_t$ denote portfolio value; the terminal $V_T$ is reported along with time-series plots of $V_t$.
+
+\subsubsection{Risk and Risk-Adjusted Return}
+
+Realized volatility, realized MAD, and realized IQR are reported. Risk-adjusted performance is summarized using an explicit return-to-volatility ratio:
+\begin{equation}
+    \mathrm{CAGR/AnnVol} \triangleq \frac{\mathrm{CAGR}}{\mathrm{AnnVol}},
+    \label{eq:cagr_annvol}
+\end{equation}
+where CAGR is used as the numerator to align with long-horizon compounding in the backtest. This explicit label (CAGR/AnnVol) is used rather than the conventional Sharpe ratio, which is typically defined using mean excess returns.
+
+\subsubsection{Drawdown}
+
+Two drawdown measures are reported. \emph{Within-period maximum drawdown (within-period MDD)} is computed within each holding period from the running peak-to-trough decline of the cumulative return path implied by daily portfolio returns during that period, and tables report the worst within-period drawdown over time for each configuration. Because this measure resets at each rebalance boundary, it can understate a decline that spans two adjacent holding periods (e.g., a drawdown beginning near the end of one period and continuing into the next). To capture this, a \emph{full-sample maximum drawdown (full-sample MDD)} is also reported, computed from the running peak-to-trough decline of the entire cumulative wealth path $V_t$ over the whole backtest, independent of rebalance boundaries. The full-sample measure is treated as the primary drawdown statistic for cross-strategy comparison; the within-period measure is retained as a complementary diagnostic of intra-period risk.
+
+\subsubsection{Turnover}
+
+Turnover levels by strategy and rebalance schedule are reported as a key driver of transaction cost sensitivity.
+
+\bibliographystyle{apalike}
+\bibliography{citations}
+
+\end{document}

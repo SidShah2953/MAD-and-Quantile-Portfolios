@@ -1,0 +1,24 @@
+\documentclass[a4paper]{article}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{authblk}
+\usepackage{geometry}
+\geometry{margin=1in}
+
+\title{Rebalancing Frequency Dominates Risk Proxy Choice: A Comparison of Mean--Variance, MAD, and Quantile-Constrained Portfolios of U.S. Sector ETFs}
+
+% \author{Your Name}
+% \affil{Your Affiliation}
+\date{}
+
+\begin{document}
+
+\maketitle
+
+\begin{abstract}
+Practitioners choosing among risk measures for portfolio construction face a real question: does the choice of risk proxy---variance, Mean Absolute Deviation (MAD), interquartile range (IQR), or a wider central-quantile measure---actually change portfolio outcomes, or does it get swamped by other implementation choices? This paper investigates that question by comparing mean--variance optimization with alternatives that constrain risk using MAD, IQR, and a wider central-quantile range (P95), applied to nine U.S. sector ETFs over 25 years. All strategies share the same constraints---long-only, fully invested, with a maximum allocation cap and an explicit cash sleeve---and are evaluated across a range of annualized risk budgets and rebalancing schedules under a strict no-look-ahead timeline. The central finding is that rebalancing frequency dominates the choice of risk proxy: once these constraints are imposed, performance differences across rebalancing schedules are typically larger than differences across volatility, MAD, IQR, or P95. The robust risk proxies are feasible to implement, but they are not a free lunch---at longer rebalance intervals in particular, they tend to converge toward similar allocations and realized outcomes as variance-based optimization. For practitioners, this suggests that operational decisions like rebalancing cadence may deserve more attention than the choice of risk metric itself.
+
+\noindent\textbf{Keywords:} portfolio optimization; mean absolute deviation; interquartile range; quantile risk; rebalancing; sector ETFs; robust risk measures
+\end{abstract}
+
+\end{document}
